@@ -1,0 +1,6 @@
+peliculas=10
+series=2
+novelas=2
+shows=5
+animados=1
+animes=1
