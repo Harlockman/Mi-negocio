@@ -1,36 +1,1043 @@
-<!-- Scan Files Tab -->
-<div id="scan-files-tab" class="admin-tab">
-    <h2><i class="fas fa-search"></i> Procesar Archivo de Estructura</h2>
-    
-    <div class="scan-controls">
-        <div class="scan-options">
-            <h3>Subir Archivo HTML de Estructura</h3>
-            <p style="color: #aaa; margin-bottom: 1rem;">
-                Sube el archivo HTML generado por Snap2HTML que contiene la estructura de tus directorios.
-                El sistema extraerá automáticamente los nombres de los archivos y buscará información en TMDB.
-            </p>
-            <input type="file" id="structure-file-input" accept=".html" style="margin-bottom: 1rem;">
-            <button id="btn-upload-structure" class="btn-primary">
-                <i class="fas fa-upload"></i> Procesar Archivo
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamStore - Panel de Administración</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        .admin-container {
+            display: flex;
+            min-height: calc(100vh - 70px);
+        }
+        .admin-sidebar {
+            width: 260px;
+            background: #0a0a0a;
+            border-right: 1px solid #333;
+            padding: 2rem 0;
+        }
+        .admin-menu-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            width: 100%;
+            padding: 1rem 1.5rem;
+            background: transparent;
+            border: none;
+            color: #aaa;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .admin-menu-btn:hover, .admin-menu-btn.active {
+            background: #e50914;
+            color: #fff;
+        }
+        .admin-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+        .admin-tab {
+            display: none;
+        }
+        .admin-tab.active {
+            display: block;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: #1f1f1f;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+        .stat-card h3 {
+            font-size: 2rem;
+            color: #e50914;
+        }
+        .upload-area {
+            background: #1f1f1f;
+            border: 2px dashed #333;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .upload-area:hover {
+            border-color: #e50914;
+            background: #2a2a2a;
+        }
+        .progress-container {
+            background: #333;
+            border-radius: 10px;
+            height: 30px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+        .progress-bar {
+            background: #e50914;
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8rem;
+        }
+        .log-container {
+            background: #0a0a0a;
+            border-radius: 8px;
+            padding: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+        .log-entry {
+            padding: 0.3rem;
+            border-bottom: 1px solid #333;
+            color: #aaa;
+        }
+        .log-entry.success { color: #28a745; }
+        .log-entry.error { color: #dc3545; }
+        .log-entry.warning { color: #ffc107; }
+        .product-item {
+            background: #1f1f1f;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .product-item img {
+            width: 50px;
+            height: 75px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+        .product-info {
+            flex: 1;
+        }
+        .product-info h4 {
+            margin-bottom: 0.3rem;
+        }
+        .price-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            background: #1f1f1f;
+            border-radius: 8px;
+        }
+        .price-item label {
+            width: 100px;
+        }
+        .price-item input {
+            flex: 1;
+            padding: 0.5rem;
+            background: #333;
+            border: none;
+            color: #fff;
+            border-radius: 4px;
+        }
+        .btn-secondary {
+            background: #333;
+            color: #fff;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-danger {
+            background: #dc3545;
+            color: #fff;
+        }
+        .setting-group {
+            background: #1f1f1f;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .setting-group input {
+            width: 100%;
+            padding: 0.5rem;
+            margin: 0.5rem 0;
+            background: #333;
+            border: none;
+            color: #fff;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <header class="header" style="background: #000; border-bottom: 1px solid #e50914;">
+        <div class="logo">
+            <h1>StreamStore <span style="font-size: 0.8rem;">Admin</span></h1>
+        </div>
+        <nav class="nav">
+            <a href="index.html" class="nav-link">← Volver a la Tienda</a>
+        </nav>
+        <div class="user-menu">
+            <span id="admin-user">Administrador</span>
+            <button id="admin-logout" class="btn-small">Cerrar Sesión</button>
+        </div>
+    </header>
+
+    <div class="admin-container">
+        <div class="admin-sidebar">
+            <button class="admin-menu-btn active" data-tab="dashboard">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </button>
+            <button class="admin-menu-btn" data-tab="upload">
+                <i class="fas fa-upload"></i> Subir Estructura
+            </button>
+            <button class="admin-menu-btn" data-tab="products">
+                <i class="fas fa-database"></i> Productos
+            </button>
+            <button class="admin-menu-btn" data-tab="orders">
+                <i class="fas fa-shopping-cart"></i> Pedidos
+            </button>
+            <button class="admin-menu-btn" data-tab="prices">
+                <i class="fas fa-tags"></i> Precios
+            </button>
+            <button class="admin-menu-btn" data-tab="settings">
+                <i class="fas fa-cog"></i> Configuración
             </button>
         </div>
+
+        <div class="admin-content">
+            <!-- Dashboard -->
+            <div id="dashboard-tab" class="admin-tab active">
+                <h2>Dashboard</h2>
+                <div class="stats-grid" id="stats-container">
+                    <div class="stat-card">
+                        <h3 id="total-peliculas">0</h3>
+                        <p>Películas</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="total-series">0</h3>
+                        <p>Series</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="total-productos">0</h3>
+                        <p>Total Productos</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3 id="total-pedidos">0</h3>
+                        <p>Pedidos</p>
+                    </div>
+                </div>
+                <div class="setting-group">
+                    <h3>Instrucciones Rápidas</h3>
+                    <ol style="color: #aaa; line-height: 1.8;">
+                        <li>Ve a la pestaña "Subir Estructura"</li>
+                        <li>Selecciona el archivo HTML que contiene la estructura de tus directorios (el que generaste con Snap2HTML)</li>
+                        <li>Espera a que procese todos los archivos</li>
+                        <li>Los productos aparecerán automáticamente en la tienda</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Upload Tab -->
+            <div id="upload-tab" class="admin-tab">
+                <h2>Subir Archivo de Estructura</h2>
+                <p style="color: #aaa; margin-bottom: 1rem;">
+                    Sube el archivo HTML generado por Snap2HTML que contiene la estructura de tus directorios.
+                    El sistema extraerá todos los archivos, buscará información en TMDB y los guardará en la base de datos.
+                </p>
+                
+                <div id="upload-area" class="upload-area">
+                    <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: #e50914;"></i>
+                    <p>Haz clic o arrastra el archivo HTML aquí</p>
+                    <p style="font-size: 0.8rem; color: #666;">Archivos .html generados por Snap2HTML</p>
+                </div>
+                <input type="file" id="file-input" accept=".html" style="display: none;">
+                
+                <div id="progress-area" style="display: none;">
+                    <h3>Procesando archivos...</h3>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progress-bar">0%</div>
+                    </div>
+                    <div class="progress-stats" style="display: flex; gap: 1rem; margin: 1rem 0;">
+                        <div>Archivos encontrados: <strong id="total-files">0</strong></div>
+                        <div>Procesados: <strong id="processed-files">0</strong></div>
+                        <div>Nuevos: <strong id="new-files">0</strong></div>
+                        <div>Existentes: <strong id="existing-files">0</strong></div>
+                        <div>Errores: <strong id="error-files">0</strong></div>
+                    </div>
+                    <div class="log-container" id="log-container"></div>
+                </div>
+            </div>
+
+            <!-- Products Tab -->
+            <div id="products-tab" class="admin-tab">
+                <h2>Productos en Base de Datos</h2>
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <input type="text" id="product-search" placeholder="Buscar producto..." style="flex: 1; padding: 0.5rem; background: #333; border: none; color: #fff; border-radius: 4px;">
+                    <select id="category-filter" style="padding: 0.5rem; background: #333; border: none; color: #fff; border-radius: 4px;">
+                        <option value="">Todas</option>
+                        <option value="peliculas">Películas</option>
+                        <option value="series">Series</option>
+                        <option value="novelas">Novelas</option>
+                        <option value="shows">Shows</option>
+                        <option value="animados">Animados</option>
+                        <option value="animes">Animes</option>
+                    </select>
+                    <button id="refresh-products" class="btn-secondary">Refrescar</button>
+                </div>
+                <div id="products-list"></div>
+            </div>
+
+            <!-- Orders Tab -->
+            <div id="orders-tab" class="admin-tab">
+                <h2>Pedidos</h2>
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                    <input type="text" id="order-search" placeholder="Buscar por código..." style="flex: 1; padding: 0.5rem; background: #333; border: none; color: #fff; border-radius: 4px;">
+                    <button id="search-order" class="btn-secondary">Buscar</button>
+                    <button id="export-orders" class="btn-secondary">Exportar</button>
+                </div>
+                <div id="orders-list"></div>
+            </div>
+
+            <!-- Prices Tab -->
+            <div id="prices-tab" class="admin-tab">
+                <h2>Configurar Precios</h2>
+                <div class="price-item">
+                    <label>Películas:</label>
+                    <input type="number" id="price-peliculas" step="0.01" value="5.99">
+                    <span>$</span>
+                </div>
+                <div class="price-item">
+                    <label>Series (por cap):</label>
+                    <input type="number" id="price-series" step="0.01" value="2.99">
+                    <span>$</span>
+                </div>
+                <div class="price-item">
+                    <label>Novelas (por cap):</label>
+                    <input type="number" id="price-novelas" step="0.01" value="3.99">
+                    <span>$</span>
+                </div>
+                <div class="price-item">
+                    <label>Shows:</label>
+                    <input type="number" id="price-shows" step="0.01" value="4.99">
+                    <span>$</span>
+                </div>
+                <div class="price-item">
+                    <label>Animados:</label>
+                    <input type="number" id="price-animados" step="0.01" value="2.99">
+                    <span>$</span>
+                </div>
+                <div class="price-item">
+                    <label>Animes (por cap):</label>
+                    <input type="number" id="price-animes" step="0.01" value="3.99">
+                    <span>$</span>
+                </div>
+                <button id="save-prices" class="btn-primary" style="margin-top: 1rem;">Guardar Precios</button>
+                <button id="apply-prices" class="btn-secondary" style="margin-top: 1rem;">Aplicar a Productos</button>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings-tab" class="admin-tab">
+                <h2>Configuración</h2>
+                <div class="setting-group">
+                    <h3>TMDB API Key</h3>
+                    <input type="password" id="tmdb-api-key" placeholder="Ingresa tu API Key de TMDB">
+                    <button id="save-api-key" class="btn-secondary">Guardar</button>
+                    <p class="help-text" style="margin-top: 0.5rem; color: #aaa; font-size: 0.8rem;">
+                        Obtén tu API Key gratis en <a href="https://www.themoviedb.org/signup" target="_blank" style="color: #e50914;">themoviedb.org</a>
+                    </p>
+                </div>
+                <div class="setting-group">
+                    <h3>Base de Datos</h3>
+                    <button id="export-db" class="btn-secondary">Exportar Backup</button>
+                    <button id="import-db" class="btn-secondary">Importar Backup</button>
+                    <button id="reset-db" class="btn-danger" style="margin-left: 1rem;">Resetear Todo</button>
+                    <input type="file" id="import-file" style="display: none;" accept=".json">
+                </div>
+            </div>
+        </div>
     </div>
 
-    <div class="scan-progress" style="display: none;">
-        <div class="progress-bar-container">
-            <div class="progress-bar" id="scan-progress-bar"></div>
-        </div>
-        <div class="progress-stats">
-            <span id="scan-current-file">Esperando archivo...</span>
-            <span id="scan-progress-text">0%</span>
-        </div>
-        <div class="progress-details">
-            <div>Archivos procesados: <strong id="processed-count">0</strong></div>
-            <div>Archivos nuevos: <strong id="new-count">0</strong></div>
-            <div>Archivos existentes: <strong id="existing-count">0</strong></div>
-            <div>Errores: <strong id="error-count">0</strong></div>
-        </div>
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Procesando...</p>
     </div>
 
-    <div id="scan-results" class="scan-results"></div>
-</div>
+    <script src="js/db.js"></script>
+    <script src="js/tmdb.js"></script>
+    <script>
+        // Admin Panel JavaScript
+        let currentAdmin = null;
+        let allProducts = [];
+
+        // Verificar sesión admin
+        async function checkAdminSession() {
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                const user = JSON.parse(savedUser);
+                if (user.telefono === 'altairdbb' && user.password === 'altairdbb') {
+                    currentAdmin = user;
+                    document.getElementById('admin-user').textContent = user.nombre;
+                    return true;
+                }
+            }
+            window.location.href = 'index.html';
+            return false;
+        }
+
+        // Cargar estadísticas
+        async function loadStats() {
+            const productos = await DB.obtenerProductos();
+            const pedidos = await DB.obtenerPedidos();
+            
+            const peliculas = productos.filter(p => p.seccion === 'peliculas').length;
+            const series = productos.filter(p => p.seccion === 'series').length;
+            
+            document.getElementById('total-peliculas').textContent = peliculas;
+            document.getElementById('total-series').textContent = series;
+            document.getElementById('total-productos').textContent = productos.length;
+            document.getElementById('total-pedidos').textContent = pedidos.length;
+        }
+
+        // Procesar archivo HTML
+        async function processHTMLFile(file) {
+            const loading = document.getElementById('loading-overlay');
+            const progressArea = document.getElementById('progress-area');
+            const logContainer = document.getElementById('log-container');
+            const progressBar = document.getElementById('progress-bar');
+            const totalFilesSpan = document.getElementById('total-files');
+            const processedSpan = document.getElementById('processed-files');
+            const newSpan = document.getElementById('new-files');
+            const existingSpan = document.getElementById('existing-files');
+            const errorSpan = document.getElementById('error-files');
+            
+            loading.style.display = 'flex';
+            progressArea.style.display = 'block';
+            logContainer.innerHTML = '';
+            
+            let processed = 0;
+            let newCount = 0;
+            let existingCount = 0;
+            let errorCount = 0;
+            
+            function addLog(message, type = '') {
+                const logEntry = document.createElement('div');
+                logEntry.className = `log-entry ${type}`;
+                logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                logContainer.appendChild(logEntry);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+            
+            try {
+                addLog('📄 Leyendo archivo...');
+                const htmlContent = await readFileAsText(file);
+                addLog('✅ Archivo leído correctamente');
+                
+                addLog('🔍 Extrayendo información de directorios...');
+                const files = extractFilesFromHTML(htmlContent);
+                addLog(`📁 Encontrados ${files.length} archivos multimedia`);
+                totalFilesSpan.textContent = files.length;
+                
+                // Obtener productos existentes
+                const existingProducts = await DB.obtenerProductos();
+                const existingIds = new Set(existingProducts.map(p => p.id));
+                
+                // Obtener precios actuales
+                const prices = {
+                    peliculas: parseFloat(document.getElementById('price-peliculas').value) || 5.99,
+                    series: parseFloat(document.getElementById('price-series').value) || 2.99,
+                    novelas: parseFloat(document.getElementById('price-novelas').value) || 3.99,
+                    shows: parseFloat(document.getElementById('price-shows').value) || 4.99,
+                    animados: parseFloat(document.getElementById('price-animados').value) || 2.99,
+                    animes: parseFloat(document.getElementById('price-animes').value) || 3.99
+                };
+                
+                // Procesar cada archivo
+                for (let i = 0; i < files.length; i++) {
+                    const fileInfo = files[i];
+                    processed++;
+                    
+                    const percent = Math.round((processed / files.length) * 100);
+                    progressBar.style.width = `${percent}%`;
+                    progressBar.textContent = `${percent}%`;
+                    processedSpan.textContent = processed;
+                    
+                    addLog(`📀 Procesando: ${fileInfo.name}`, '');
+                    
+                    // Verificar si ya existe
+                    const id = generateId(fileInfo);
+                    if (existingIds.has(id)) {
+                        existingCount++;
+                        existingSpan.textContent = existingCount;
+                        addLog(`   ⏭️ Ya existe en BD: ${fileInfo.name}`, 'warning');
+                        continue;
+                    }
+                    
+                    // Buscar en TMDB si hay API key
+                    let tmdbInfo = null;
+                    const apiKey = localStorage.getItem('tmdb_api_key');
+                    if (apiKey) {
+                        addLog(`   🔍 Buscando en TMDB: ${fileInfo.cleanName}`, '');
+                        tmdbInfo = await searchTMDB(fileInfo.cleanName, fileInfo.type === 'peliculas' ? 'movie' : 'tv');
+                        if (tmdbInfo) {
+                            addLog(`   ✅ Encontrado: ${tmdbInfo.titulo}`, 'success');
+                        } else {
+                            addLog(`   ⚠️ No encontrado en TMDB`, 'warning');
+                        }
+                    }
+                    
+                    // Crear producto
+                    const product = {
+                        id: id,
+                        titulo: tmdbInfo?.titulo || fileInfo.cleanName,
+                        nombre_original: fileInfo.name,
+                        seccion: fileInfo.type,
+                        tipo_contenido: fileInfo.season ? 'serie' : 'pelicula',
+                        temporada: fileInfo.season,
+                        episodio: fileInfo.episode,
+                        precio: prices[fileInfo.type],
+                        sinopsis: tmdbInfo?.sinopsis || 'Sin información disponible.',
+                        anio: tmdbInfo?.anio || extractYear(fileInfo.name),
+                        poster: tmdbInfo?.poster || getDefaultPoster(fileInfo.type),
+                        trailer: tmdbInfo?.trailer || null,
+                        fecha_agregado: new Date().toISOString()
+                    };
+                    
+                    await DB.guardarProducto(product);
+                    newCount++;
+                    newSpan.textContent = newCount;
+                    existingIds.add(id);
+                    addLog(`   ✅ Producto agregado: ${product.titulo}`, 'success');
+                }
+                
+                addLog(`🎉 Procesamiento completado! Nuevos: ${newCount}, Existentes: ${existingCount}, Errores: ${errorCount}`);
+                alert(`Procesamiento completado!\n\nNuevos productos: ${newCount}\nYa existían: ${existingCount}\nErrores: ${errorCount}`);
+                
+                // Recargar estadísticas y productos
+                await loadStats();
+                await loadProducts();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                addLog(`❌ Error: ${error.message}`, 'error');
+                alert('Error al procesar el archivo: ' + error.message);
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+        
+        // Extraer archivos del HTML
+        function extractFilesFromHTML(htmlContent) {
+            const files = [];
+            const seen = new Set();
+            
+            // Patrón para encontrar archivos de video
+            const patterns = [
+                /"([^"]*\.(?:mp4|avi|mkv|mov|wmv|mpg|mpeg))\*(\d+)\*(\d+)"/gi,
+                /([^"]*\.(?:mp4|avi|mkv|mov|wmv|mpg|mpeg))/gi
+            ];
+            
+            let match;
+            const regex = /"([^"]*\.(?:mp4|avi|mkv|mov|wmv|mpg|mpeg))\*(\d+)\*(\d+)"/gi;
+            
+            while ((match = regex.exec(htmlContent)) !== null) {
+                const fullPath = match[1];
+                const name = fullPath.split('/').pop() || fullPath.split('\\').pop();
+                
+                if (seen.has(name)) continue;
+                seen.add(name);
+                
+                const fileInfo = parseFileName(name, fullPath);
+                files.push(fileInfo);
+            }
+            
+            // Si no encontró con el patrón completo, buscar solo nombres
+            if (files.length === 0) {
+                const simpleRegex = /([^"]*\.(?:mp4|avi|mkv|mov|wmv|mpg|mpeg))/gi;
+                while ((match = simpleRegex.exec(htmlContent)) !== null) {
+                    const fullPath = match[1];
+                    const name = fullPath.split('/').pop() || fullPath.split('\\').pop();
+                    
+                    if (seen.has(name)) continue;
+                    seen.add(name);
+                    
+                    const fileInfo = parseFileName(name, fullPath);
+                    files.push(fileInfo);
+                }
+            }
+            
+            return files;
+        }
+        
+        // Parsear nombre de archivo
+        function parseFileName(filename, fullPath) {
+            let cleanName = filename.replace(/\.[^/.]+$/, "");
+            cleanName = cleanName.replace(/\[.*?\]|\(.*?\)/g, '');
+            cleanName = cleanName.replace(/[._-]/g, ' ').trim();
+            
+            // Detectar temporada y episodio
+            let season = null;
+            let episode = null;
+            let title = cleanName;
+            
+            const patterns = [
+                /[Ss](\d+)[Ee](\d+)/,
+                /(\d+)x(\d+)/,
+                /(\d+)-(\d+)/
+            ];
+            
+            for (const pattern of patterns) {
+                const match = cleanName.match(pattern);
+                if (match) {
+                    season = parseInt(match[1]);
+                    episode = parseInt(match[2]);
+                    title = cleanName.replace(pattern, '').trim();
+                    break;
+                }
+            }
+            
+            // Detectar tipo
+            let type = 'peliculas';
+            const pathLower = fullPath.toLowerCase();
+            if (pathLower.includes('series') || pathLower.includes('serie')) type = 'series';
+            else if (pathLower.includes('novelas') || pathLower.includes('telenovela')) type = 'novelas';
+            else if (pathLower.includes('shows')) type = 'shows';
+            else if (pathLower.includes('animados') || pathLower.includes('cartoon')) type = 'animados';
+            else if (pathLower.includes('animes') || pathLower.includes('anime')) type = 'animes';
+            else if (season !== null) type = 'series';
+            
+            return {
+                name: filename,
+                fullPath: fullPath,
+                cleanName: title || cleanName,
+                title: title || cleanName,
+                season: season,
+                episode: episode,
+                type: type
+            };
+        }
+        
+        // Generar ID único
+        function generateId(fileInfo) {
+            if (fileInfo.season && fileInfo.episode) {
+                return `${fileInfo.cleanName}_S${fileInfo.season}E${fileInfo.episode}`.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            }
+            return fileInfo.cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        }
+        
+        // Buscar en TMDB
+        async function searchTMDB(query, type) {
+            const apiKey = localStorage.getItem('tmdb_api_key');
+            if (!apiKey) return null;
+            
+            try {
+                const url = `https://api.themoviedb.org/3/search/${type}?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=es`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.results && data.results.length > 0) {
+                    const result = data.results[0];
+                    
+                    // Obtener trailer
+                    let trailer = null;
+                    const videoUrl = `https://api.themoviedb.org/3/${type}/${result.id}/videos?api_key=${apiKey}&language=es`;
+                    const videoRes = await fetch(videoUrl);
+                    const videoData = await videoRes.json();
+                    const trailerVideo = videoData.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+                    if (trailerVideo) {
+                        trailer = `https://www.youtube.com/embed/${trailerVideo.key}`;
+                    }
+                    
+                    return {
+                        titulo: result.title || result.name,
+                        sinopsis: result.overview,
+                        anio: (result.release_date || result.first_air_date || '').split('-')[0],
+                        poster: result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : null,
+                        trailer: trailer
+                    };
+                }
+            } catch (error) {
+                console.error('TMDB error:', error);
+            }
+            return null;
+        }
+        
+        // Extraer año del nombre
+        function extractYear(name) {
+            const match = name.match(/\b(19|20)\d{2}\b/);
+            return match ? match[0] : 'Desconocido';
+        }
+        
+        // Obtener póster por defecto
+        function getDefaultPoster(type) {
+            const posters = {
+                peliculas: 'https://via.placeholder.com/500x750?text=Película',
+                series: 'https://via.placeholder.com/500x750?text=Serie',
+                novelas: 'https://via.placeholder.com/500x750?text=Novela',
+                shows: 'https://via.placeholder.com/500x750?text=Show',
+                animados: 'https://via.placeholder.com/500x750?text=Animado',
+                animes: 'https://via.placeholder.com/500x750?text=Anime'
+            };
+            return posters[type] || 'https://via.placeholder.com/500x750?text=Contenido';
+        }
+        
+        // Leer archivo como texto
+        function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = (e) => reject(e.target.error);
+                reader.readAsText(file);
+            });
+        }
+        
+        // Cargar productos
+        async function loadProducts() {
+            allProducts = await DB.obtenerProductos();
+            const searchTerm = document.getElementById('product-search')?.value.toLowerCase() || '';
+            const category = document.getElementById('category-filter')?.value || '';
+            
+            let filtered = allProducts;
+            if (searchTerm) {
+                filtered = filtered.filter(p => p.titulo?.toLowerCase().includes(searchTerm));
+            }
+            if (category) {
+                filtered = filtered.filter(p => p.seccion === category);
+            }
+            
+            const container = document.getElementById('products-list');
+            if (!container) return;
+            
+            if (filtered.length === 0) {
+                container.innerHTML = '<p>No hay productos. Sube un archivo de estructura para comenzar.</p>';
+                return;
+            }
+            
+            container.innerHTML = filtered.map(p => `
+                <div class="product-item">
+                    <img src="${p.poster}" onerror="this.src='https://via.placeholder.com/500x750?text=No+Poster'">
+                    <div class="product-info">
+                        <h4>${p.titulo}</h4>
+                        <p style="color: #aaa; font-size: 0.8rem;">${p.seccion} • ${p.anio}</p>
+                        <p style="color: #e50914;">$${(p.precio || 0).toFixed(2)}</p>
+                        ${p.temporada ? `<p style="font-size: 0.7rem;">Temp ${p.temporada} - Cap ${p.episodio}</p>` : ''}
+                    </div>
+                    <button class="delete-product" data-id="${p.id}" style="background: #dc3545; border: none; color: #fff; padding: 0.3rem 0.8rem; border-radius: 4px; cursor: pointer;">
+                        Eliminar
+                    </button>
+                </div>
+            `).join('');
+            
+            document.querySelectorAll('.delete-product').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    if (confirm('¿Eliminar este producto?')) {
+                        await DB.eliminarProducto(btn.dataset.id);
+                        await loadProducts();
+                        await loadStats();
+                    }
+                });
+            });
+        }
+        
+        // Cargar pedidos
+        async function loadOrders() {
+            const orders = await DB.obtenerPedidos();
+            const container = document.getElementById('orders-list');
+            
+            if (!container) return;
+            
+            if (orders.length === 0) {
+                container.innerHTML = '<p>No hay pedidos aún.</p>';
+                return;
+            }
+            
+            container.innerHTML = orders.map(order => `
+                <div style="background: #1f1f1f; padding: 1rem; margin-bottom: 0.5rem; border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <strong style="color: #e50914;">${order.codigo}</strong>
+                        <span>${new Date(order.fecha).toLocaleString()}</span>
+                    </div>
+                    <div>Usuario: ${order.usuario}</div>
+                    <div>Total: $${order.total?.toFixed(2) || '0.00'}</div>
+                    <div style="margin-top: 0.5rem; font-size: 0.8rem;">
+                        Items: ${order.items?.map(i => `${i.titulo} x${i.cantidad}`).join(', ') || 'Ninguno'}
+                    </div>
+                    <button class="delete-order" data-code="${order.codigo}" style="margin-top: 0.5rem; background: #dc3545; border: none; color: #fff; padding: 0.2rem 0.5rem; border-radius: 4px; cursor: pointer;">
+                        Eliminar
+                    </button>
+                </div>
+            `).join('');
+            
+            document.querySelectorAll('.delete-order').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    if (confirm('¿Eliminar este pedido?')) {
+                        await DB.eliminarPedido(btn.dataset.code);
+                        await loadOrders();
+                        await loadStats();
+                    }
+                });
+            });
+        }
+        
+        // Aplicar precios a productos
+        async function applyPricesToProducts() {
+            const prices = {
+                peliculas: parseFloat(document.getElementById('price-peliculas').value) || 5.99,
+                series: parseFloat(document.getElementById('price-series').value) || 2.99,
+                novelas: parseFloat(document.getElementById('price-novelas').value) || 3.99,
+                shows: parseFloat(document.getElementById('price-shows').value) || 4.99,
+                animados: parseFloat(document.getElementById('price-animados').value) || 2.99,
+                animes: parseFloat(document.getElementById('price-animes').value) || 3.99
+            };
+            
+            const products = await DB.obtenerProductos();
+            let updated = 0;
+            
+            for (const product of products) {
+                const newPrice = prices[product.seccion];
+                if (newPrice && product.precio !== newPrice) {
+                    product.precio = newPrice;
+                    await DB.guardarProducto(product);
+                    updated++;
+                }
+            }
+            
+            alert(`Precios aplicados a ${updated} productos`);
+            await loadProducts();
+        }
+        
+        // Exportar base de datos
+        async function exportDatabase() {
+            const productos = await DB.obtenerProductos();
+            const pedidos = await DB.obtenerPedidos();
+            
+            const exportData = {
+                fecha: new Date().toISOString(),
+                productos: productos,
+                pedidos: pedidos
+            };
+            
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `streamstore_backup_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        // Importar base de datos
+        async function importDatabase(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        
+                        if (data.productos) {
+                            for (const product of data.productos) {
+                                await DB.guardarProducto(product);
+                            }
+                        }
+                        
+                        if (data.pedidos) {
+                            for (const pedido of data.pedidos) {
+                                await DB.guardarPedido(pedido);
+                            }
+                        }
+                        
+                        resolve(data);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = () => reject(reader.error);
+                reader.readAsText(file);
+            });
+        }
+        
+        // Resetear base de datos
+        async function resetDatabase() {
+            if (!confirm('⚠️ ¿Estás seguro? Esto ELIMINARÁ TODOS los productos y pedidos. Esta acción no se puede deshacer.')) {
+                return;
+            }
+            
+            const db = await DB.openDB();
+            const tx = db.transaction(['productos', 'pedidos'], 'readwrite');
+            tx.objectStore('productos').clear();
+            tx.objectStore('pedidos').clear();
+            
+            tx.oncomplete = () => {
+                alert('Base de datos reseteada correctamente');
+                loadStats();
+                loadProducts();
+                loadOrders();
+            };
+        }
+        
+        // Event Listeners
+        function bindEvents() {
+            // Tabs
+            document.querySelectorAll('.admin-menu-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const tab = btn.dataset.tab;
+                    document.querySelectorAll('.admin-menu-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                    btn.classList.add('active');
+                    document.getElementById(`${tab}-tab`).classList.add('active');
+                    
+                    if (tab === 'products') loadProducts();
+                    if (tab === 'orders') loadOrders();
+                });
+            });
+            
+            // Upload
+            const uploadArea = document.getElementById('upload-area');
+            const fileInput = document.getElementById('file-input');
+            
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#e50914';
+            });
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.style.borderColor = '#333';
+            });
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.style.borderColor = '#333';
+                const file = e.dataTransfer.files[0];
+                if (file && file.name.endsWith('.html')) {
+                    processHTMLFile(file);
+                } else {
+                    alert('Por favor sube un archivo HTML');
+                }
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) processHTMLFile(file);
+            });
+            
+            // Products
+            document.getElementById('refresh-products')?.addEventListener('click', loadProducts);
+            document.getElementById('product-search')?.addEventListener('input', loadProducts);
+            document.getElementById('category-filter')?.addEventListener('change', loadProducts);
+            
+            // Orders
+            document.getElementById('search-order')?.addEventListener('click', async () => {
+                const code = document.getElementById('order-search').value;
+                if (!code) return;
+                const orders = await DB.obtenerPedidos();
+                const order = orders.find(o => o.codigo === code);
+                if (order) {
+                    alert(`Pedido encontrado:\nCódigo: ${order.codigo}\nUsuario: ${order.usuario}\nTotal: $${order.total?.toFixed(2)}\nFecha: ${new Date(order.fecha).toLocaleString()}`);
+                } else {
+                    alert('Pedido no encontrado');
+                }
+            });
+            
+            document.getElementById('export-orders')?.addEventListener('click', async () => {
+                const orders = await DB.obtenerPedidos();
+                const blob = new Blob([JSON.stringify(orders, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `pedidos_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+            
+            // Prices
+            document.getElementById('save-prices')?.addEventListener('click', () => {
+                const prices = {
+                    peliculas: document.getElementById('price-peliculas').value,
+                    series: document.getElementById('price-series').value,
+                    novelas: document.getElementById('price-novelas').value,
+                    shows: document.getElementById('price-shows').value,
+                    animados: document.getElementById('price-animados').value,
+                    animes: document.getElementById('price-animes').value
+                };
+                localStorage.setItem('custom_prices', JSON.stringify(prices));
+                alert('Precios guardados');
+            });
+            
+            document.getElementById('apply-prices')?.addEventListener('click', applyPricesToProducts);
+            
+            // Settings
+            document.getElementById('save-api-key')?.addEventListener('click', () => {
+                const apiKey = document.getElementById('tmdb-api-key').value;
+                if (apiKey) {
+                    localStorage.setItem('tmdb_api_key', apiKey);
+                    alert('API Key guardada');
+                }
+            });
+            
+            document.getElementById('export-db')?.addEventListener('click', exportDatabase);
+            document.getElementById('import-db')?.addEventListener('click', () => {
+                document.getElementById('import-file').click();
+            });
+            document.getElementById('reset-db')?.addEventListener('click', resetDatabase);
+            document.getElementById('import-file')?.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (file && confirm('¿Importar backup? Esto agregará los datos a la base actual.')) {
+                    await importDatabase(file);
+                    alert('Backup importado correctamente');
+                    loadStats();
+                    loadProducts();
+                    loadOrders();
+                }
+            });
+            
+            // Logout
+            document.getElementById('admin-logout')?.addEventListener('click', () => {
+                localStorage.removeItem('currentUser');
+                window.location.href = 'index.html';
+            });
+            
+            // Cargar precios guardados
+            const savedPrices = localStorage.getItem('custom_prices');
+            if (savedPrices) {
+                const prices = JSON.parse(savedPrices);
+                if (prices.peliculas) document.getElementById('price-peliculas').value = prices.peliculas;
+                if (prices.series) document.getElementById('price-series').value = prices.series;
+                if (prices.novelas) document.getElementById('price-novelas').value = prices.novelas;
+                if (prices.shows) document.getElementById('price-shows').value = prices.shows;
+                if (prices.animados) document.getElementById('price-animados').value = prices.animados;
+                if (prices.animes) document.getElementById('price-animes').value = prices.animes;
+            }
+            
+            // Cargar API key guardada
+            const savedApiKey = localStorage.getItem('tmdb_api_key');
+            if (savedApiKey) {
+                document.getElementById('tmdb-api-key').value = savedApiKey;
+            }
+        }
+        
+        // Inicializar
+        async function init() {
+            await checkAdminSession();
+            await DB.openDB();
+            await loadStats();
+            await loadProducts();
+            bindEvents();
+        }
+        
+        init();
+    </script>
+</body>
+</html>
