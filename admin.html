@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamStore - Panel de Administración</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <header class="header admin-header">
+        <div class="logo">
+            <h1>StreamStore <span style="font-size: 0.8rem;">Admin</span></h1>
+        </div>
+        <nav class="nav">
+            <a href="index.html" class="nav-link">← Volver al Sitio</a>
+        </nav>
+        <div class="user-menu">
+            <span id="admin-user">Administrador</span>
+            <button id="admin-logout" class="btn-small">Cerrar Sesión</button>
+        </div>
+    </header>
+
+    <main class="admin-main">
+        <div class="admin-sidebar">
+            <div class="admin-menu">
+                <button class="admin-menu-btn active" data-tab="dashboard">
+                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                </button>
+                <button class="admin-menu-btn" data-tab="scan-files">
+                    <i class="fas fa-search"></i> Escanear Archivos
+                </button>
+                <button class="admin-menu-btn" data-tab="manage-products">
+                    <i class="fas fa-database"></i> Gestionar Productos
+                </button>
+                <button class="admin-menu-btn" data-tab="manage-orders">
+                    <i class="fas fa-shopping-cart"></i> Pedidos
+                </button>
+                <button class="admin-menu-btn" data-tab="manage-prices">
+                    <i class="fas fa-tags"></i> Precios
+                </button>
+                <button class="admin-menu-btn" data-tab="sync-tmdb">
+                    <i class="fas fa-sync"></i> Sincronizar TMDB
+                </button>
+                <button class="admin-menu-btn" data-tab="settings">
+                    <i class="fas fa-cog"></i> Configuración
+                </button>
+            </div>
+        </div>
+
+        <div class="admin-content">
+            <!-- Dashboard Tab -->
+            <div id="dashboard-tab" class="admin-tab active">
+                <h2><i class="fas fa-chart-line"></i> Dashboard</h2>
+                <div class="stats-grid" id="stats-container">
+                    <div class="stat-card">
+                        <i class="fas fa-film"></i>
+                        <div class="stat-info">
+                            <h3 id="total-peliculas">0</h3>
+                            <p>Películas</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-tv"></i>
+                        <div class="stat-info">
+                            <h3 id="total-series">0</h3>
+                            <p>Series</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-drama"></i>
+                        <div class="stat-info">
+                            <h3 id="total-novelas">0</h3>
+                            <p>Novelas</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-microphone-alt"></i>
+                        <div class="stat-info">
+                            <h3 id="total-shows">0</h3>
+                            <p>Shows</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-dragon"></i>
+                        <div class="stat-info">
+                            <h3 id="total-animados">0</h3>
+                            <p>Animados</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-japanese-yen"></i>
+                        <div class="stat-info">
+                            <h3 id="total-animes">0</h3>
+                            <p>Animes</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-shopping-cart"></i>
+                        <div class="stat-info">
+                            <h3 id="total-pedidos">0</h3>
+                            <p>Pedidos Totales</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-users"></i>
+                        <div class="stat-info">
+                            <h3 id="total-usuarios">0</h3>
+                            <p>Usuarios Registrados</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="recent-activity">
+                    <h3>Últimos Productos Añadidos</h3>
+                    <div id="recent-products" class="recent-list"></div>
+                </div>
+            </div>
+
+            <!-- Scan Files Tab -->
+            <div id="scan-files-tab" class="admin-tab">
+                <h2><i class="fas fa-search"></i> Escanear Archivos</h2>
+                <div class="scan-controls">
+                    <div class="scan-options">
+                        <h3>Configuración de Escaneo</h3>
+                        <label>
+                            <input type="checkbox" id="scan-recursive" checked>
+                            Escanear subcarpetas recursivamente
+                        </label>
+                        <label>
+                            <input type="checkbox" id="scan-update-existing" checked>
+                            Actualizar productos existentes
+                        </label>
+                        <label>
+                            <input type="checkbox" id="scan-fetch-tmdb" checked>
+                            Buscar información en TMDB
+                        </label>
+                    </div>
+                    <div class="scan-actions">
+                        <button id="btn-start-scan" class="btn-primary">
+                            <i class="fas fa-play"></i> Iniciar Escaneo
+                        </button>
+                        <button id="btn-stop-scan" class="btn-secondary" disabled>
+                            <i class="fas fa-stop"></i> Detener
+                        </button>
+                        <button id="btn-clear-cache" class="btn-secondary">
+                            <i class="fas fa-trash"></i> Limpiar Cache
+                        </button>
+                    </div>
+                </div>
+
+                <div class="scan-progress" style="display: none;">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="scan-progress-bar"></div>
+                    </div>
+                    <div class="progress-stats">
+                        <span id="scan-current-file">Esperando inicio...</span>
+                        <span id="scan-progress-text">0%</span>
+                    </div>
+                    <div class="progress-details">
+                        <div>Archivos procesados: <strong id="processed-count">0</strong></div>
+                        <div>Archivos nuevos: <strong id="new-count">0</strong></div>
+                        <div>Archivos existentes: <strong id="existing-count">0</strong></div>
+                        <div>Errores: <strong id="error-count">0</strong></div>
+                    </div>
+                </div>
+
+                <div id="scan-results" class="scan-results"></div>
+            </div>
+
+            <!-- Manage Products Tab -->
+            <div id="manage-products-tab" class="admin-tab">
+                <h2><i class="fas fa-database"></i> Gestionar Productos</h2>
+                <div class="product-filters">
+                    <input type="text" id="product-search" placeholder="Buscar producto...">
+                    <select id="product-category-filter">
+                        <option value="">Todas las categorías</option>
+                        <option value="peliculas">Películas</option>
+                        <option value="series">Series</option>
+                        <option value="novelas">Novelas</option>
+                        <option value="shows">Shows</option>
+                        <option value="animados">Animados</option>
+                        <option value="animes">Animes</option>
+                    </select>
+                    <button id="btn-refresh-products" class="btn-small">
+                        <i class="fas fa-sync"></i> Refrescar
+                    </button>
+                </div>
+                <div id="products-list" class="products-list"></div>
+            </div>
+
+            <!-- Manage Orders Tab -->
+            <div id="manage-orders-tab" class="admin-tab">
+                <h2><i class="fas fa-shopping-cart"></i> Pedidos</h2>
+                <div class="order-filters">
+                    <input type="text" id="order-search" placeholder="Buscar por código o usuario...">
+                    <button id="btn-search-order" class="btn-small">Buscar</button>
+                    <button id="btn-export-orders" class="btn-small">Exportar Pedidos</button>
+                </div>
+                <div id="orders-list" class="orders-list"></div>
+            </div>
+
+            <!-- Manage Prices Tab -->
+            <div id="manage-prices-tab" class="admin-tab">
+                <h2><i class="fas fa-tags"></i> Configurar Precios</h2>
+                <div class="prices-form">
+                    <div class="price-item">
+                        <label>Películas:</label>
+                        <input type="number" id="price-peliculas" step="0.01" min="0">
+                        <span class="currency">$</span>
+                    </div>
+                    <div class="price-item">
+                        <label>Series (por capítulo):</label>
+                        <input type="number" id="price-series" step="0.01" min="0">
+                        <span class="currency">$</span>
+                    </div>
+                    <div class="price-item">
+                        <label>Novelas (por capítulo):</label>
+                        <input type="number" id="price-novelas" step="0.01" min="0">
+                        <span class="currency">$</span>
+                    </div>
+                    <div class="price-item">
+                        <label>Shows:</label>
+                        <input type="number" id="price-shows" step="0.01" min="0">
+                        <span class="currency">$</span>
+                    </div>
+                    <div class="price-item">
+                        <label>Animados:</label>
+                        <input type="number" id="price-animados" step="0.01" min="0">
+                        <span class="currency">$</span>
+                    </div>
+                    <div class="price-item">
+                        <label>Animes (por capítulo):</label>
+                        <input type="number" id="price-animes" step="0.01" min="0">
+                        <span class="currency">$</span>
+                    </div>
+                    <button id="btn-save-prices" class="btn-primary">Guardar Precios</button>
+                    <button id="btn-load-prices" class="btn-secondary">Cargar desde GitHub</button>
+                </div>
+            </div>
+
+            <!-- Sync TMDB Tab -->
+            <div id="sync-tmdb-tab" class="admin-tab">
+                <h2><i class="fas fa-sync"></i> Sincronizar con TMDB</h2>
+                <div class="sync-info">
+                    <p>Esta acción buscará información actualizada de TMDB para todos los productos existentes.</p>
+                    <p class="warning">⚠️ Este proceso puede tomar varios minutos dependiendo de la cantidad de productos.</p>
+                </div>
+                <button id="btn-sync-all-tmdb" class="btn-primary">
+                    <i class="fas fa-sync"></i> Sincronizar Todos
+                </button>
+                <div id="sync-progress" class="sync-progress" style="display: none;">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar" id="sync-progress-bar"></div>
+                    </div>
+                    <div id="sync-status"></div>
+                </div>
+            </div>
+
+            <!-- Settings Tab -->
+            <div id="settings-tab" class="admin-tab">
+                <h2><i class="fas fa-cog"></i> Configuración</h2>
+                <div class="settings-form">
+                    <div class="setting-group">
+                        <h3>TMDB API Key</h3>
+                        <input type="password" id="tmdb-api-key" placeholder="Ingresa tu API Key de TMDB">
+                        <button id="btn-save-api-key" class="btn-small">Guardar</button>
+                        <p class="help-text">Obtén tu API Key en <a href="https://www.themoviedb.org/signup" target="_blank">themoviedb.org</a></p>
+                    </div>
+                    <div class="setting-group">
+                        <h3>GitHub Repository</h3>
+                        <input type="text" id="github-repo" placeholder="usuario/repo">
+                        <button id="btn-save-github" class="btn-small">Guardar</button>
+                    </div>
+                    <div class="setting-group">
+                        <h3>Base de Datos</h3>
+                        <button id="btn-export-db" class="btn-secondary">Exportar Base de Datos</button>
+                        <button id="btn-import-db" class="btn-secondary">Importar Base de Datos</button>
+                        <button id="btn-reset-db" class="btn-danger">Resetear Base de Datos</button>
+                        <input type="file" id="import-file" style="display: none;" accept=".json">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Procesando...</p>
+    </div>
+
+    <script src="js/db.js"></script>
+    <script src="js/tmdb.js"></script>
+    <script src="js/file-scanner.js"></script>
+    <script src="js/admin-tools.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>
