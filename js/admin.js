@@ -1,6 +1,8 @@
-// admin.js - Controlador del panel de administración
+// admin.js - Controlador del panel de administración (versión con parser de HTML)
+
 let adminTools = null;
 let currentUser = null;
+let fileParser = null;
 
 const Admin = {
     init: async function() {
@@ -9,6 +11,12 @@ const Admin = {
         
         // Inicializar herramientas
         adminTools = new AdminTools();
+        fileParser = new FileParser();
+        
+        // Configurar callbacks del parser
+        fileParser.onLog = (log) => {
+            this.addParserLog(log);
+        };
         
         // Cargar configuración inicial
         await this.loadInitialData();
@@ -21,10 +29,8 @@ const Admin = {
     },
     
     checkAdminSession: async function() {
-        // Verificar si hay usuario admin logueado
         const adminUser = localStorage.getItem('admin_logged');
         if (!adminUser) {
-            // Redirigir al login si no está autenticado
             window.location.href = 'index.html';
             return;
         }
@@ -36,28 +42,24 @@ const Admin = {
         }
         
         currentUser = user;
-        document.getElementById('admin-user').textContent = user.nombre;
+        const adminUserSpan = document.getElementById('admin-user');
+        if (adminUserSpan) adminUserSpan.textContent = user.nombre;
     },
     
     loadInitialData: async function() {
-        // Cargar estadísticas
         await this.loadStats();
-        
-        // Cargar productos recientes
         await this.loadRecentProducts();
-        
-        // Cargar precios
         await this.loadPrices();
         
         // Cargar configuración guardada
         const savedApiKey = localStorage.getItem('tmdb_api_key');
-        if (savedApiKey) {
+        if (savedApiKey && document.getElementById('tmdb-api-key')) {
             document.getElementById('tmdb-api-key').value = savedApiKey;
             window.CONFIG.TMDB_API_KEY = savedApiKey;
         }
         
         const savedRepo = localStorage.getItem('github_repo');
-        if (savedRepo) {
+        if (savedRepo && document.getElementById('github-repo')) {
             document.getElementById('github-repo').value = savedRepo;
             window.CONFIG.GITHUB_REPO = savedRepo;
         }
@@ -66,14 +68,21 @@ const Admin = {
     loadStats: async function() {
         const stats = await adminTools.getStats();
         
-        document.getElementById('total-peliculas').textContent = stats.por_seccion.peliculas || 0;
-        document.getElementById('total-series').textContent = stats.por_seccion.series || 0;
-        document.getElementById('total-novelas').textContent = stats.por_seccion.novelas || 0;
-        document.getElementById('total-shows').textContent = stats.por_seccion.shows || 0;
-        document.getElementById('total-animados').textContent = stats.por_seccion.animados || 0;
-        document.getElementById('total-animes').textContent = stats.por_seccion.animes || 0;
-        document.getElementById('total-pedidos').textContent = stats.total_pedidos;
-        document.getElementById('total-usuarios').textContent = stats.total_usuarios;
+        const elements = {
+            'total-peliculas': stats.por_seccion?.peliculas || 0,
+            'total-series': stats.por_seccion?.series || 0,
+            'total-novelas': stats.por_seccion?.novelas || 0,
+            'total-shows': stats.por_seccion?.shows || 0,
+            'total-animados': stats.por_seccion?.animados || 0,
+            'total-animes': stats.por_seccion?.animes || 0,
+            'total-pedidos': stats.total_pedidos || 0,
+            'total-usuarios': stats.total_usuarios || 0
+        };
+        
+        for (const [id, value] of Object.entries(elements)) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        }
     },
     
     loadRecentProducts: async function() {
@@ -83,16 +92,16 @@ const Admin = {
         if (!container) return;
         
         if (products.length === 0) {
-            container.innerHTML = '<p>No hay productos aún. Escanea archivos para comenzar.</p>';
+            container.innerHTML = '<p>No hay productos aún. Procesa el archivo de estructura para comenzar.</p>';
             return;
         }
         
         container.innerHTML = products.map(product => `
-            <div class="recent-product">
-                <img src="${product.poster}" alt="${product.titulo}" width="50" height="75">
+            <div class="recent-product" style="display: flex; align-items: center; gap: 1rem; padding: 0.5rem; border-bottom: 1px solid #333;">
+                <img src="${product.poster}" alt="${product.titulo}" style="width: 40px; height: 60px; object-fit: cover; border-radius: 4px;">
                 <div>
                     <strong>${product.titulo}</strong>
-                    <p>${product.seccion} • ${product.anio}</p>
+                    <p style="font-size: 0.8rem; color: #aaa;">${product.seccion} • ${product.anio}</p>
                 </div>
             </div>
         `).join('');
@@ -100,6 +109,18 @@ const Admin = {
     
     loadPrices: async function() {
         try {
+            // Intentar cargar desde localStorage primero
+            const customPrices = localStorage.getItem('custom_prices');
+            if (customPrices) {
+                const prices = JSON.parse(customPrices);
+                for (const [key, value] of Object.entries(prices)) {
+                    const input = document.getElementById(`price-${key}`);
+                    if (input) input.value = value;
+                }
+                return;
+            }
+            
+            // Si no hay precios personalizados, cargar desde prices.txt
             const response = await fetch('data/precios.txt');
             const text = await response.text();
             const lines = text.split('\n');
@@ -126,38 +147,63 @@ const Admin = {
         });
         
         // Botón de logout
-        document.getElementById('admin-logout')?.addEventListener('click', () => {
-            localStorage.removeItem('admin_logged');
-            window.location.href = 'index.html';
-        });
+        const logoutBtn = document.getElementById('admin-logout');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                localStorage.removeItem('admin_logged');
+                window.location.href = 'index.html';
+            });
+        }
         
-        // Botones de escaneo
-        document.getElementById('btn-start-scan')?.addEventListener('click', () => this.startScan());
-        document.getElementById('btn-stop-scan')?.addEventListener('click', () => this.stopScan());
-        document.getElementById('btn-clear-cache')?.addEventListener('click', () => this.clearScanCache());
+        // Botones de procesamiento de estructura HTML
+        const uploadBtn = document.getElementById('btn-upload-structure');
+        if (uploadBtn) {
+            uploadBtn.addEventListener('click', () => this.uploadStructureFile());
+        }
         
         // Botones de productos
-        document.getElementById('btn-refresh-products')?.addEventListener('click', () => this.loadProducts());
-        document.getElementById('product-search')?.addEventListener('input', () => this.filterProducts());
-        document.getElementById('product-category-filter')?.addEventListener('change', () => this.filterProducts());
+        const refreshBtn = document.getElementById('btn-refresh-products');
+        if (refreshBtn) refreshBtn.addEventListener('click', () => this.loadProducts());
+        
+        const searchInput = document.getElementById('product-search');
+        if (searchInput) searchInput.addEventListener('input', () => this.filterProducts());
+        
+        const categoryFilter = document.getElementById('product-category-filter');
+        if (categoryFilter) categoryFilter.addEventListener('change', () => this.filterProducts());
         
         // Botones de pedidos
-        document.getElementById('btn-search-order')?.addEventListener('click', () => this.searchOrders());
-        document.getElementById('btn-export-orders')?.addEventListener('click', () => this.exportOrders());
+        const searchOrderBtn = document.getElementById('btn-search-order');
+        if (searchOrderBtn) searchOrderBtn.addEventListener('click', () => this.searchOrders());
+        
+        const exportOrdersBtn = document.getElementById('btn-export-orders');
+        if (exportOrdersBtn) exportOrdersBtn.addEventListener('click', () => this.exportOrders());
         
         // Botones de precios
-        document.getElementById('btn-save-prices')?.addEventListener('click', () => this.savePrices());
-        document.getElementById('btn-load-prices')?.addEventListener('click', () => this.loadPrices());
+        const savePricesBtn = document.getElementById('btn-save-prices');
+        if (savePricesBtn) savePricesBtn.addEventListener('click', () => this.savePrices());
+        
+        const loadPricesBtn = document.getElementById('btn-load-prices');
+        if (loadPricesBtn) loadPricesBtn.addEventListener('click', () => this.loadPrices());
         
         // Botones de sincronización
-        document.getElementById('btn-sync-all-tmdb')?.addEventListener('click', () => this.syncAllTMDB());
+        const syncAllBtn = document.getElementById('btn-sync-all-tmdb');
+        if (syncAllBtn) syncAllBtn.addEventListener('click', () => this.syncAllTMDB());
         
         // Botones de configuración
-        document.getElementById('btn-save-api-key')?.addEventListener('click', () => this.saveApiKey());
-        document.getElementById('btn-save-github')?.addEventListener('click', () => this.saveGitHubRepo());
-        document.getElementById('btn-export-db')?.addEventListener('click', () => this.exportDatabase());
-        document.getElementById('btn-import-db')?.addEventListener('click', () => this.importDatabase());
-        document.getElementById('btn-reset-db')?.addEventListener('click', () => this.resetDatabase());
+        const saveApiKeyBtn = document.getElementById('btn-save-api-key');
+        if (saveApiKeyBtn) saveApiKeyBtn.addEventListener('click', () => this.saveApiKey());
+        
+        const saveGithubBtn = document.getElementById('btn-save-github');
+        if (saveGithubBtn) saveGithubBtn.addEventListener('click', () => this.saveGitHubRepo());
+        
+        const exportDbBtn = document.getElementById('btn-export-db');
+        if (exportDbBtn) exportDbBtn.addEventListener('click', () => this.exportDatabase());
+        
+        const importDbBtn = document.getElementById('btn-import-db');
+        if (importDbBtn) importDbBtn.addEventListener('click', () => this.importDatabase());
+        
+        const resetDbBtn = document.getElementById('btn-reset-db');
+        if (resetDbBtn) resetDbBtn.addEventListener('click', () => this.resetDatabase());
     },
     
     switchTab: function(tabId) {
@@ -196,41 +242,80 @@ const Admin = {
         }
     },
     
-    startScan: async function() {
-        const recursive = document.getElementById('scan-recursive')?.checked || true;
-        const updateExisting = document.getElementById('scan-update-existing')?.checked || true;
-        const fetchTMDB = document.getElementById('scan-fetch-tmdb')?.checked || true;
+    uploadStructureFile: function() {
+        const fileInput = document.getElementById('structure-file-input');
+        if (!fileInput) return;
         
-        // Mostrar progreso
-        document.querySelector('.scan-progress').style.display = 'block';
-        document.getElementById('btn-start-scan').disabled = true;
-        document.getElementById('btn-stop-scan').disabled = false;
-        document.getElementById('scan-results').innerHTML = '';
+        fileInput.click();
+        
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (file && file.name.endsWith('.html')) {
+                await this.processStructureFile(file);
+            } else {
+                alert('Por favor selecciona un archivo HTML válido (generado por Snap2HTML)');
+            }
+        };
+    },
+    
+    processStructureFile: async function(file) {
+        const loadingOverlay = document.getElementById('loading-overlay');
+        if (loadingOverlay) loadingOverlay.style.display = 'flex';
+        
+        // Mostrar área de progreso
+        const progressDiv = document.getElementById('scan-progress');
+        if (progressDiv) progressDiv.style.display = 'block';
+        
+        const resultsContainer = document.getElementById('scan-results');
+        if (resultsContainer) resultsContainer.innerHTML = '';
         
         try {
-            const stats = await adminTools.startFileScan({
-                recursive,
-                updateExisting,
-                fetchTMDB
-            });
+            const htmlContent = await this.readFileAsText(file);
             
-            alert(`Escaneo completado:\nNuevos: ${stats.new}\nExistentes: ${stats.existing}\nErrores: ${stats.errors}`);
+            const result = await fileParser.parseStructureHTML(htmlContent);
+            
+            alert(`Procesamiento completado!\n\nTotal archivos encontrados: ${result.stats.total}\nNuevos productos: ${result.stats.new}\nProductos existentes: ${result.stats.existing}\nErrores: ${result.stats.errors}`);
+            
+            // Recargar estadísticas y productos
+            await this.loadStats();
+            await this.loadProducts();
+            
         } catch (error) {
-            console.error('Error en escaneo:', error);
-            alert('Error durante el escaneo: ' + error.message);
+            console.error('Error procesando archivo:', error);
+            alert('Error al procesar el archivo: ' + error.message);
         } finally {
-            document.getElementById('btn-start-scan').disabled = false;
-            document.getElementById('btn-stop-scan').disabled = true;
+            if (loadingOverlay) loadingOverlay.style.display = 'none';
         }
     },
     
-    stopScan: function() {
-        adminTools.stopFileScan();
+    readFileAsText: function(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = (e) => reject(e.target.error);
+            reader.readAsText(file);
+        });
     },
     
-    clearScanCache: function() {
-        adminTools.clearScanResults();
-        document.querySelector('.scan-progress').style.display = 'none';
+    addParserLog: function(log) {
+        const resultsContainer = document.getElementById('scan-results');
+        if (!resultsContainer) return;
+        
+        const logEntry = document.createElement('div');
+        logEntry.className = `scan-result-item ${log.type}`;
+        logEntry.innerHTML = `
+            <strong>${log.name}</strong> - ${log.message}
+            <span style="color: #666; font-size: 0.8rem; margin-left: 1rem;">
+                ${new Date(log.timestamp).toLocaleTimeString()}
+            </span>
+        `;
+        
+        resultsContainer.insertBefore(logEntry, resultsContainer.firstChild);
+        
+        // Limitar a 100 entradas
+        while (resultsContainer.children.length > 100) {
+            resultsContainer.removeChild(resultsContainer.lastChild);
+        }
     },
     
     loadProducts: async function() {
@@ -240,11 +325,10 @@ const Admin = {
         if (!container) return;
         
         if (products.length === 0) {
-            container.innerHTML = '<p>No hay productos. Escanea archivos para comenzar.</p>';
+            container.innerHTML = '<p>No hay productos. Procesa un archivo de estructura para comenzar.</p>';
             return;
         }
         
-        // Guardar todos los productos para filtrar
         this.allProducts = products;
         this.filterProducts();
     },
@@ -253,11 +337,11 @@ const Admin = {
         const searchTerm = document.getElementById('product-search')?.value.toLowerCase() || '';
         const category = document.getElementById('product-category-filter')?.value || '';
         
-        let filtered = this.allProducts;
+        let filtered = this.allProducts || [];
         
         if (searchTerm) {
             filtered = filtered.filter(p => 
-                p.titulo.toLowerCase().includes(searchTerm) ||
+                p.titulo?.toLowerCase().includes(searchTerm) ||
                 p.nombre_original?.toLowerCase().includes(searchTerm)
             );
         }
@@ -273,27 +357,34 @@ const Admin = {
         const container = document.getElementById('products-list');
         if (!container) return;
         
+        if (products.length === 0) {
+            container.innerHTML = '<p>No se encontraron productos.</p>';
+            return;
+        }
+        
         container.innerHTML = products.map(product => `
             <div class="product-item" data-id="${product.id}">
-                <img src="${product.poster}" alt="${product.titulo}" onerror="this.src='https://via.placeholder.com/500x750?text=No+Poster'">
-                <div class="product-info">
+                <img src="${product.poster}" alt="${product.titulo}" 
+                     onerror="this.src='https://via.placeholder.com/500x750?text=No+Poster'"
+                     style="width: 60px; height: 90px; object-fit: cover; border-radius: 4px;">
+                <div class="product-info" style="flex: 1;">
                     <h4>${product.titulo}</h4>
-                    <p>${product.seccion} • ${product.anio}</p>
-                    <p class="price">$${product.precio.toFixed(2)}</p>
-                    ${product.temporada ? `<p>Temp ${product.temporada} - Cap ${product.episodio}</p>` : ''}
+                    <p style="color: #aaa; font-size: 0.8rem;">${product.seccion} • ${product.anio}</p>
+                    <p style="color: #e50914; font-weight: bold;">$${product.precio?.toFixed(2) || '0.00'}</p>
+                    ${product.temporada ? `<p style="font-size: 0.8rem;">Temp ${product.temporada} - Cap ${product.episodio}</p>` : ''}
                 </div>
-                <div class="product-actions">
-                    <button class="edit-product" data-id="${product.id}">
+                <div class="product-actions" style="display: flex; gap: 0.5rem;">
+                    <button class="edit-product" data-id="${product.id}" style="padding: 0.5rem; background: #333; border: none; color: #fff; border-radius: 4px; cursor: pointer;">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="delete-product" data-id="${product.id}">
+                    <button class="delete-product" data-id="${product.id}" style="padding: 0.5rem; background: #333; border: none; color: #fff; border-radius: 4px; cursor: pointer;">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
             </div>
         `).join('');
         
-        // Bindear eventos de edición/eliminación
+        // Bindear eventos
         document.querySelectorAll('.edit-product').forEach(btn => {
             btn.addEventListener('click', () => this.editProduct(btn.dataset.id));
         });
@@ -304,35 +395,41 @@ const Admin = {
     },
     
     editProduct: async function(id) {
-        const product = (await DB.obtenerProductos()).find(p => p.id === id);
+        const allProducts = await DB.obtenerProductos();
+        const product = allProducts.find(p => p.id === id);
         if (!product) return;
         
-        // Crear modal de edición
         const modal = document.createElement('div');
         modal.className = 'modal';
         modal.innerHTML = `
-            <div class="modal-content large-modal">
-                <span class="close-modal">&times;</span>
+            <div class="modal-content" style="max-width: 600px;">
+                <span class="close-modal" style="float: right; font-size: 1.5rem; cursor: pointer;">&times;</span>
                 <h2>Editar Producto</h2>
                 <form id="edit-product-form">
-                    <label>Título:</label>
-                    <input type="text" id="edit-titulo" value="${product.titulo}">
-                    
-                    <label>Sinopsis:</label>
-                    <textarea id="edit-sinopsis">${product.sinopsis}</textarea>
-                    
-                    <label>Año:</label>
-                    <input type="text" id="edit-anio" value="${product.anio}">
-                    
-                    <label>Precio:</label>
-                    <input type="number" id="edit-precio" value="${product.precio}" step="0.01">
-                    
-                    <label>URL del Poster:</label>
-                    <input type="text" id="edit-poster" value="${product.poster}">
-                    
-                    <label>URL del Trailer (YouTube embed):</label>
-                    <input type="text" id="edit-trailer" value="${product.trailer || ''}">
-                    
+                    <div style="margin-bottom: 1rem;">
+                        <label>Título:</label>
+                        <input type="text" id="edit-titulo" value="${product.titulo.replace(/"/g, '&quot;')}" style="width: 100%; padding: 0.5rem;">
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <label>Sinopsis:</label>
+                        <textarea id="edit-sinopsis" style="width: 100%; padding: 0.5rem; min-height: 100px;">${product.sinopsis.replace(/"/g, '&quot;')}</textarea>
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <label>Año:</label>
+                        <input type="text" id="edit-anio" value="${product.anio}" style="width: 100%; padding: 0.5rem;">
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <label>Precio:</label>
+                        <input type="number" id="edit-precio" value="${product.precio}" step="0.01" style="width: 100%; padding: 0.5rem;">
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <label>URL del Poster:</label>
+                        <input type="text" id="edit-poster" value="${product.poster}" style="width: 100%; padding: 0.5rem;">
+                    </div>
+                    <div style="margin-bottom: 1rem;">
+                        <label>URL del Trailer:</label>
+                        <input type="text" id="edit-trailer" value="${product.trailer || ''}" style="width: 100%; padding: 0.5rem;">
+                    </div>
                     <button type="submit" class="btn-primary">Guardar</button>
                 </form>
             </div>
@@ -365,6 +462,7 @@ const Admin = {
         if (confirm('¿Estás seguro de eliminar este producto?')) {
             await DB.eliminarProducto(id);
             this.loadProducts();
+            await this.loadStats();
             alert('Producto eliminado');
         }
     },
@@ -389,33 +487,33 @@ const Admin = {
         if (!container) return;
         
         container.innerHTML = orders.map(order => `
-            <div class="order-card" data-code="${order.codigo}">
-                <div class="order-header">
-                    <span class="order-code">Código: ${order.codigo}</span>
+            <div class="order-card" style="background: #1f1f1f; padding: 1rem; margin-bottom: 1rem; border-radius: 8px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid #333;">
+                    <span style="color: #e50914; font-weight: bold;">Código: ${order.codigo}</span>
                     <span>${new Date(order.fecha).toLocaleString()}</span>
                 </div>
                 <div>Usuario: ${order.usuario}</div>
-                <div>Total: $${order.total.toFixed(2)}</div>
-                <div class="order-items">
+                <div>Total: $${order.total?.toFixed(2) || '0.00'}</div>
+                <div style="margin-top: 0.5rem; padding-left: 1rem;">
                     <strong>Items:</strong>
-                    ${order.items.map(item => `
-                        <div class="order-item">
+                    ${order.items?.map(item => `
+                        <div style="display: flex; justify-content: space-between; padding: 0.25rem 0;">
                             <span>${item.titulo}</span>
                             <span>x${item.cantidad}</span>
                             <span>$${(item.precio * item.cantidad).toFixed(2)}</span>
                         </div>
-                    `).join('')}
+                    `).join('') || '<p>No hay items</p>'}
                 </div>
-                <button class="delete-order" data-code="${order.codigo}">Eliminar Pedido</button>
+                <button class="delete-order" data-code="${order.codigo}" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #dc3545; border: none; color: #fff; border-radius: 4px; cursor: pointer;">
+                    Eliminar Pedido
+                </button>
             </div>
         `).join('');
         
-        // Bindear eventos de eliminación
         document.querySelectorAll('.delete-order').forEach(btn => {
             btn.addEventListener('click', async () => {
                 if (confirm('¿Eliminar este pedido?')) {
                     const code = btn.dataset.code;
-                    // Implementar eliminación en db.js
                     const db = await DB.openDB();
                     const tx = db.transaction('pedidos', 'readwrite');
                     tx.objectStore('pedidos').delete(code);
@@ -431,14 +529,14 @@ const Admin = {
     searchOrders: function() {
         const searchTerm = document.getElementById('order-search')?.value.toLowerCase() || '';
         
-        if (!searchTerm) {
-            this.renderOrders(this.allOrders);
+        if (!searchTerm || !this.allOrders) {
+            this.renderOrders(this.allOrders || []);
             return;
         }
         
         const filtered = this.allOrders.filter(order => 
-            order.codigo.toLowerCase().includes(searchTerm) ||
-            order.usuario.toLowerCase().includes(searchTerm)
+            order.codigo?.toLowerCase().includes(searchTerm) ||
+            order.usuario?.toLowerCase().includes(searchTerm)
         );
         
         this.renderOrders(filtered);
@@ -451,11 +549,7 @@ const Admin = {
             usuario: order.usuario,
             fecha: order.fecha,
             total: order.total,
-            items: order.items.map(item => ({
-                titulo: item.titulo,
-                cantidad: item.cantidad,
-                precio: item.precio
-            }))
+            items: order.items
         }));
         
         const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -479,27 +573,30 @@ const Admin = {
             animes: document.getElementById('price-animes')?.value
         };
         
-        // Guardar en localStorage temporalmente
+        // Guardar en localStorage
         localStorage.setItem('custom_prices', JSON.stringify(prices));
         
-        // También podríamos actualizar los productos existentes
+        // Actualizar productos existentes
         const products = await DB.obtenerProductos();
+        let updated = 0;
+        
         for (const product of products) {
             const newPrice = parseFloat(prices[product.seccion]);
             if (newPrice && product.precio !== newPrice) {
                 product.precio = newPrice;
                 await DB.guardarProducto(product);
+                updated++;
             }
         }
         
-        alert('Precios guardados y actualizados en productos');
+        alert(`Precios guardados. Se actualizaron ${updated} productos.`);
     },
     
     saveApiKey: function() {
         const apiKey = document.getElementById('tmdb-api-key')?.value;
         if (apiKey) {
             localStorage.setItem('tmdb_api_key', apiKey);
-            window.CONFIG.TMDB_API_KEY = apiKey;
+            if (window.TMDB) window.TMDB.config.apiKey = apiKey;
             alert('API Key guardada correctamente');
         }
     },
@@ -514,24 +611,65 @@ const Admin = {
     },
     
     syncAllTMDB: async function() {
-        if (!window.CONFIG.TMDB_API_KEY) {
+        const apiKey = localStorage.getItem('tmdb_api_key');
+        if (!apiKey) {
             alert('Por favor configura tu API Key de TMDB primero');
             return;
         }
         
-        if (confirm('¿Sincronizar todos los productos con TMDB? Este proceso puede tomar varios minutos.')) {
-            const syncProgress = document.getElementById('sync-progress');
-            if (syncProgress) syncProgress.style.display = 'block';
+        if (!confirm('¿Sincronizar todos los productos con TMDB? Este proceso puede tomar varios minutos.')) {
+            return;
+        }
+        
+        const syncProgress = document.getElementById('sync-progress');
+        if (syncProgress) syncProgress.style.display = 'block';
+        
+        const products = await DB.obtenerProductos();
+        let processed = 0;
+        let updated = 0;
+        
+        for (const product of products) {
+            processed++;
+            const percent = (processed / products.length * 100).toFixed(1);
+            
+            const progressBar = document.getElementById('sync-progress-bar');
+            const statusDiv = document.getElementById('sync-status');
+            
+            if (progressBar) progressBar.style.width = `${percent}%`;
+            if (statusDiv) statusDiv.textContent = `Procesando ${processed}/${products.length}: ${product.titulo}`;
+            
+            const tmdbType = product.tipo_contenido === 'pelicula' ? 'movie' : 'tv';
             
             try {
-                const result = await adminTools.syncAllWithTMDB();
-                alert(`Sincronización completada. Actualizados: ${result.updated} de ${result.total}`);
+                const info = await window.TMDB.searchAndGetInfo(product.titulo, tmdbType);
+                
+                if (info) {
+                    let updatedProduct = { ...product };
+                    updatedProduct.titulo = info.titulo;
+                    updatedProduct.sinopsis = info.sinopsis || product.sinopsis;
+                    updatedProduct.anio = info.anio || product.anio;
+                    updatedProduct.fecha_estreno = info.fecha_estreno;
+                    updatedProduct.poster = info.poster || product.poster;
+                    updatedProduct.trailer = info.trailer || product.trailer;
+                    updatedProduct.fecha_actualizacion = new Date().toISOString();
+                    
+                    await DB.guardarProducto(updatedProduct);
+                    updated++;
+                }
+                
+                // Pequeña pausa para no sobrecargar la API
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
             } catch (error) {
-                alert('Error durante la sincronización: ' + error.message);
-            } finally {
-                if (syncProgress) syncProgress.style.display = 'none';
+                console.error(`Error sincronizando ${product.titulo}:`, error);
             }
         }
+        
+        if (statusDiv) statusDiv.textContent = `Sincronización completada. Actualizados: ${updated} de ${products.length}`;
+        alert(`Sincronización completada. Actualizados: ${updated} de ${products.length}`);
+        
+        this.loadProducts();
+        await this.loadStats();
     },
     
     exportDatabase: async function() {
@@ -541,7 +679,7 @@ const Admin = {
     
     importDatabase: function() {
         const fileInput = document.getElementById('import-file');
-        fileInput.click();
+        if (fileInput) fileInput.click();
         
         fileInput.onchange = async (e) => {
             const file = e.target.files[0];
