@@ -2,7 +2,7 @@
 window.TMDB = {
     // Configuración por defecto
     config: {
-        apiKey: '',
+        apiKey: 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI3MzA3MzUwZDBiMTY2MDU4ZDFiOTI2YWFkNzkzZWVlYyIsIm5iZiI6MTc3Mzk0ODgzMy44MzIsInN1YiI6IjY5YmM0ZmExMjAxNGE5MWU2M2FhZmZhMyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.JIq_kDsLUYIFV-x8QzvPtwwpYdraLcSecdmW9upWbOw',
         baseUrl: 'https://api.themoviedb.org/3',
         language: 'es',
         imageBaseUrl: 'https://image.tmdb.org/t/p/'
