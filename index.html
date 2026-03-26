@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>StreamStore - Tu Negocio de Grabación</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Fuente e íconos de ejemplo (puedes cambiarlos) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <!-- Header con navegación y barra de usuario -->
+    <header class="header">
+        <div class="logo">
+            <h1>StreamStore</h1>
+        </div>
+        <nav class="nav">
+            <a href="#" data-section="home" class="nav-link active">Inicio</a>
+            <a href="#" data-section="peliculas" class="nav-link">Películas</a>
+            <a href="#" data-section="series" class="nav-link">Series</a>
+            <a href="#" data-section="novelas" class="nav-link">Novelas</a>
+            <a href="#" data-section="shows" class="nav-link">Shows</a>
+            <a href="#" data-section="animados" class="nav-link">Animados</a>
+            <a href="#" data-section="animes" class="nav-link">Animes</a>
+            <a href="#" data-section="ultimo" class="nav-link">Lo Último</a>
+        </nav>
+        <div class="user-menu">
+            <div id="auth-buttons">
+                <button id="login-btn" class="btn-outline">Iniciar Sesión</button>
+                <button id="register-btn" class="btn-primary">Registrarse</button>
+            </div>
+            <div id="user-info" style="display: none;">
+                <span id="username-display"></span>
+                <i class="fas fa-shopping-cart" id="cart-icon"></i>
+                <span id="cart-count" class="cart-count">0</span>
+                <button id="logout-btn" class="btn-small">Salir</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenido dinámico principal -->
+    <main id="main-content">
+        <!-- Aquí se cargarán los diferentes contenidos vía JS -->
+        <div id="loading-overlay" class="loading-overlay" style="display: none;">
+            <div class="spinner"></div>
+            <p>Cargando...</p>
+        </div>
+    </main>
+
+    <!-- Modal de Login/Registro (estructura básica) -->
+    <div id="auth-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <div id="login-form-container">
+                <h2>Iniciar Sesión</h2>
+                <input type="text" id="login-username" placeholder="Usuario / Teléfono">
+                <input type="password" id="login-password" placeholder="Contraseña">
+                <button id="submit-login">Ingresar</button>
+                <p>¿No tienes cuenta? <a href="#" id="switch-to-register">Regístrate</a></p>
+            </div>
+            <div id="register-form-container" style="display: none;">
+                <h2>Registrarse</h2>
+                <input type="text" id="reg-name" placeholder="Nombre Completo">
+                <input type="tel" id="reg-phone" placeholder="Teléfono">
+                <input type="password" id="reg-password" placeholder="Contraseña">
+                <button id="submit-register">Registrarse</button>
+                <p>¿Ya tienes cuenta? <a href="#" id="switch-to-login">Inicia Sesión</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal del Carrito de Compras -->
+    <div id="cart-modal" class="modal" style="display: none;">
+        <div class="modal-content large-modal">
+            <span class="close-modal">&times;</span>
+            <h2>Tu Carrito</h2>
+            <div id="cart-items-list"></div>
+            <div class="cart-summary">
+                <strong>Total: $<span id="cart-total">0.00</span></strong>
+                <button id="checkout-btn" class="btn-primary">Realizar Pedido</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmación de Pedido -->
+    <div id="order-confirm-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>Pedido Realizado</h2>
+            <p>Tu código de pedido es: <strong id="order-code"></strong></p>
+            <p>Muestra este código al dueño del local.</p>
+            <button id="close-order-modal">Aceptar</button>
+        </div>
+    </div>
+
+    <!-- Panel de Administración (solo visible para admin) -->
+    <div id="admin-panel" class="admin-panel" style="display: none;">
+        <h2>Panel de Administración</h2>
+        <div class="admin-actions">
+            <button id="admin-refresh-data" class="btn-secondary">Refrescar Datos desde GitHub</button>
+            <button id="admin-view-orders" class="btn-secondary">Ver Pedidos</button>
+            <input type="text" id="admin-order-search" placeholder="Buscar pedido por código">
+            <button id="admin-search-order" class="btn-small">Buscar</button>
+        </div>
+        <div id="admin-orders-list"></div>
+    </div>
+
+    <footer class="footer">
+        <p>StreamStore - Todos los precios incluyen IVA</p>
+    </footer>
+
+    <script src="js/db.js"></script>
+    <script src="js/tmdb.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/admin.js"></script>
+    <script>
+        // Inicialización global después de cargar todos los scripts
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.App) window.App.init();
+            if (window.Admin) window.Admin.init();
+        });
+    </script>
+</body>
+</html>
