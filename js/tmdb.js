@@ -1,114 +1,108 @@
-// tmdb.js - API Key de TMDB (¡OBTÉN LA TUYA EN https://www.themoviedb.org/signup!)
-const TMDB_API_KEY = 'TU_API_KEY_AQUI'; // Reemplaza con tu clave
-const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/TU_USUARIO/TU_REPO/main/';
-
-// --- Lectura de archivos desde GitHub ---
-async function leerArchivoGitHub(ruta) {
-    const url = `${GITHUB_RAW_BASE}${ruta}`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`No se pudo leer ${ruta}`);
-    return await response.text();
-}
-
-// Obtener la estructura de archivos desde la carpeta "data"
-// Nota: GitHub no permite listar directorios fácilmente. Simularemos con un archivo index.json que generarías manualmente.
-// Mejor opción: Tener un archivo `data/index.json` que contenga la lista de archivos.
-async function obtenerEstructuraArchivos() {
-    try {
-        const indexContent = await leerArchivoGitHub('data/index.json');
-        return JSON.parse(indexContent);
-    } catch (error) {
-        console.error('Error al leer index.json, se usará estructura vacía', error);
-        return { peliculas: [], series: [], novelas: [], shows: [], animados: [], animes: [] };
-    }
-}
-
-// Obtener precios desde prices.txt
-async function obtenerPrecios() {
-    const content = await leerArchivoGitHub('data/precios.txt');
-    const lines = content.split('\n');
-    const precios = {};
-    for (let line of lines) {
-        line = line.trim();
-        if (line && line.includes('=')) {
-            const [tipo, precio] = line.split('=');
-            precios[tipo.trim()] = parseFloat(precio);
-        }
-    }
-    return precios;
-}
-
-// Buscar en TMDB por nombre de archivo (limpiamos extensión)
-async function buscarEnTMDB(nombreArchivo, tipo) {
-    // Limpiar nombre: quitar extensión, números de capítulo, etc.
-    let nombreLimpio = nombreArchivo.replace(/\.[^/.]+$/, ""); // quitar extensión
-    // Eliminar patrones como "S01E01", "1x01", etc. para series
-    if (tipo === 'serie') {
-        nombreLimpio = nombreLimpio.replace(/[Ss]\d+[Ee]\d+|\d+x\d+/g, '').trim();
-    }
-    const searchUrl = `${TMDB_BASE_URL}/search/${tipo === 'pelicula' ? 'movie' : 'tv'}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(nombreLimpio)}&language=es`;
-    const response = await fetch(searchUrl);
-    const data = await response.json();
-    if (data.results && data.results.length > 0) {
-        return data.results[0];
-    }
-    return null;
-}
-
-// Obtener trailer de TMDB
-async function obtenerTrailer(tmdbId, tipo) {
-    const url = `${TMDB_BASE_URL}/${tipo === 'pelicula' ? 'movie' : 'tv'}/${tmdbId}/videos?api_key=${TMDB_API_KEY}&language=es`;
-    const response = await fetch(url);
-    const data = await response.json();
-    const trailer = data.results?.find(video => video.type === 'Trailer' && video.site === 'YouTube');
-    return trailer ? `https://www.youtube.com/embed/${trailer.key}` : null;
-}
-
-// Procesar todos los archivos de la carpeta data para crear/actualizar productos en DB
-async function sincronizarProductosDesdeGitHub() {
-    const precios = await obtenerPrecios();
-    const estructura = await obtenerEstructuraArchivos();
-    const productosProcesados = new Set(); // Para evitar duplicados por nombre
-
-    for (const [seccion, archivos] of Object.entries(estructura)) {
-        for (const archivo of archivos) {
-            const nombreSinExt = archivo.replace(/\.[^/.]+$/, "");
-            if (productosProcesados.has(nombreSinExt)) continue; // Evitar duplicados
-
-            // Determinar tipo TMDB: pelicula o serie (por ahora solo diferenciamos esos dos)
-            let tipoTMDB = 'pelicula';
-            if (seccion === 'series' || seccion === 'animes' || seccion === 'novelas') {
-                tipoTMDB = 'serie';
-            }
-
-            const tmdbInfo = await buscarEnTMDB(archivo, tipoTMDB);
-            const trailer = tmdbInfo ? await obtenerTrailer(tmdbInfo.id, tipoTMDB) : null;
-
-            const producto = {
-                id: nombreSinExt, // ID único basado en nombre limpio
-                titulo: tmdbInfo?.title || tmdbInfo?.name || nombreSinExt,
-                archivo: archivo,
-                seccion: seccion,
-                tipo_contenido: seccion === 'peliculas' ? 'pelicula' : 'serie',
-                sinopsis: tmdbInfo?.overview || 'Sin información disponible.',
-                anio: tmdbInfo?.release_date?.split('-')[0] || tmdbInfo?.first_air_date?.split('-')[0] || 'Desconocido',
-                director: tmdbInfo?.director || 'No especificado',
-                poster: tmdbInfo?.poster_path ? `https://image.tmdb.org/t/p/w500${tmdbInfo.poster_path}` : 'https://via.placeholder.com/500x750?text=No+Poster',
-                trailer: trailer,
-                fecha_estreno: tmdbInfo?.release_date || tmdbInfo?.first_air_date || '2000-01-01',
-                precio: precios[seccion] || 0
-            };
-            await DB.guardarProducto(producto);
-            productosProcesados.add(nombreSinExt);
-        }
-    }
-    console.log('Sincronización completada');
-}
-
-// Exportar funciones
+// tmdb.js - Configuración y funciones de TMDB
 window.TMDB = {
-    sincronizarProductosDesdeGitHub,
-    obtenerPrecios,
-    obtenerEstructuraArchivos
+    // Configuración por defecto
+    config: {
+        apiKey: '',
+        baseUrl: 'https://api.themoviedb.org/3',
+        language: 'es',
+        imageBaseUrl: 'https://image.tmdb.org/t/p/'
+    },
+    
+    // Inicializar configuración
+    init: function() {
+        const savedApiKey = localStorage.getItem('tmdb_api_key');
+        if (savedApiKey) {
+            this.config.apiKey = savedApiKey;
+        }
+        
+        const savedLanguage = localStorage.getItem('tmdb_language');
+        if (savedLanguage) {
+            this.config.language = savedLanguage;
+        }
+    },
+    
+    // Buscar película/serie
+    search: async function(query, type = 'movie') {
+        if (!this.config.apiKey) {
+            throw new Error('TMDB API Key no configurada');
+        }
+        
+        const url = `${this.config.baseUrl}/search/${type}?api_key=${this.config.apiKey}&query=${encodeURIComponent(query)}&language=${this.config.language}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        return data.results || [];
+    },
+    
+    // Obtener detalles
+    getDetails: async function(id, type = 'movie') {
+        if (!this.config.apiKey) {
+            throw new Error('TMDB API Key no configurada');
+        }
+        
+        const url = `${this.config.baseUrl}/${type}/${id}?api_key=${this.config.apiKey}&language=${this.config.language}`;
+        const response = await fetch(url);
+        return await response.json();
+    },
+    
+    // Obtener videos (trailers, etc)
+    getVideos: async function(id, type = 'movie') {
+        if (!this.config.apiKey) {
+            throw new Error('TMDB API Key no configurada');
+        }
+        
+        const url = `${this.config.baseUrl}/${type}/${id}/videos?api_key=${this.config.apiKey}&language=${this.config.language}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        return data.results || [];
+    },
+    
+    // Obtener trailer
+    getTrailer: async function(id, type = 'movie') {
+        const videos = await this.getVideos(id, type);
+        const trailer = videos.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+        
+        if (trailer) {
+            return `https://www.youtube.com/embed/${trailer.key}`;
+        }
+        
+        return null;
+    },
+    
+    // Obtener imagen
+    getImage: function(path, size = 'w500') {
+        if (!path) return null;
+        return `${this.config.imageBaseUrl}${size}${path}`;
+    },
+    
+    // Buscar y obtener información completa
+    searchAndGetInfo: async function(query, type = 'movie') {
+        const results = await this.search(query, type);
+        
+        if (results.length === 0) {
+            return null;
+        }
+        
+        const firstResult = results[0];
+        const details = await this.getDetails(firstResult.id, type);
+        const trailer = await this.getTrailer(firstResult.id, type);
+        
+        return {
+            id: firstResult.id,
+            titulo: firstResult.title || firstResult.name,
+            sinopsis: firstResult.overview,
+            anio: (firstResult.release_date || firstResult.first_air_date || '').split('-')[0],
+            fecha_estreno: firstResult.release_date || firstResult.first_air_date,
+            poster: this.getImage(firstResult.poster_path),
+            backdrop: this.getImage(firstResult.backdrop_path, 'w1280'),
+            trailer: trailer,
+            generos: details.genres?.map(g => g.name) || [],
+            valoracion: firstResult.vote_average,
+            votos: firstResult.vote_count
+        };
+    }
 };
+
+// Inicializar
+TMDB.init();
