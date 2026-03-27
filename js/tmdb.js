@@ -1,12 +1,11 @@
 // tmdb.js - Configuración de TMDB
 const TMDB_CONFIG = {
-    apiKey: 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI3MzA3MzUwZDBiMTY2MDU4ZDFiOTI2YWFkNzkzZWVlYyIsIm5iZiI6MTc3Mzk0ODgzMy44MzIsInN1YiI6IjY5YmM0ZmExMjAxNGE5MWU2M2FhZmZhMyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.JIq_kDsLUYIFV-x8QzvPtwwpYdraLcSecdmW9upWbOw',
+    apiKey: '',
     baseUrl: 'https://api.themoviedb.org/3',
     language: 'es',
     imageBaseUrl: 'https://image.tmdb.org/t/p/'
 };
 
-// Inicializar configuración desde localStorage
 function initTMDB() {
     const savedApiKey = localStorage.getItem('tmdb_api_key');
     if (savedApiKey) {
@@ -15,7 +14,6 @@ function initTMDB() {
     }
 }
 
-// Buscar en TMDB
 async function searchTMDB(query, type = 'movie') {
     if (!TMDB_CONFIG.apiKey) {
         console.warn('TMDB API Key no configurada');
@@ -34,7 +32,6 @@ async function searchTMDB(query, type = 'movie') {
     }
 }
 
-// Obtener información completa de TMDB
 async function getTMDBInfo(query, type = 'movie') {
     const results = await searchTMDB(query, type);
     
@@ -44,7 +41,6 @@ async function getTMDBInfo(query, type = 'movie') {
     
     const firstResult = results[0];
     
-    // Obtener videos (trailers)
     let trailer = null;
     try {
         const videoUrl = `${TMDB_CONFIG.baseUrl}/${type}/${firstResult.id}/videos?api_key=${TMDB_CONFIG.apiKey}&language=${TMDB_CONFIG.language}`;
@@ -71,7 +67,6 @@ async function getTMDBInfo(query, type = 'movie') {
     };
 }
 
-// Exportar
 window.TMDB = {
     init: initTMDB,
     search: searchTMDB,
