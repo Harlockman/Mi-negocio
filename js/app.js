@@ -7,19 +7,15 @@ const App = {
     init: async function() {
         console.log('Iniciando aplicación...');
         
-        // Mostrar loading
         const loading = document.getElementById('loading-overlay');
         if (loading) loading.style.display = 'flex';
         
         try {
-            // Inicializar TMDB
             if (window.TMDB) window.TMDB.init();
             
-            // Abrir base de datos
             await DB.openDB();
             console.log('Base de datos lista');
             
-            // Crear usuario admin si no existe
             const adminExists = await DB.obtenerUsuario('altairdbb');
             if (!adminExists) {
                 await DB.registrarUsuario({
@@ -31,21 +27,12 @@ const App = {
                 console.log('Usuario admin creado');
             }
             
-            // Cargar productos
             await this.loadProducts();
-            
-            // Cargar carrito de localStorage
             this.loadCart();
-            
-            // Configurar eventos
             this.bindEvents();
-            
-            // Cargar sección inicial
             this.loadSection('home');
             
-            // Ocultar loading
             if (loading) loading.style.display = 'none';
-            
             console.log('Aplicación iniciada correctamente');
             
         } catch (error) {
@@ -60,14 +47,12 @@ const App = {
         allProducts = await DB.obtenerProductos();
         console.log(`${allProducts.length} productos cargados`);
         
-        // Si no hay productos, mostrar mensaje
         if (allProducts.length === 0) {
             console.log('No hay productos en la base de datos. Usa el panel admin para importar datos.');
         }
     },
     
     bindEvents: function() {
-        // Navegación
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -78,7 +63,6 @@ const App = {
             });
         });
         
-        // Modales de autenticación
         const loginBtn = document.getElementById('login-btn');
         const registerBtn = document.getElementById('register-btn');
         
@@ -106,7 +90,6 @@ const App = {
         if (submitRegister) submitRegister.addEventListener('click', () => this.register());
         if (logoutBtn) logoutBtn.addEventListener('click', () => this.logout());
         
-        // Carrito
         const cartIcon = document.getElementById('cart-icon');
         const checkoutBtn = document.getElementById('checkout-btn');
         const closeOrderModal = document.getElementById('close-order-modal');
@@ -117,7 +100,6 @@ const App = {
             document.getElementById('order-confirm-modal').style.display = 'none';
         });
         
-        // Cerrar modales
         document.querySelectorAll('.close-modal').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.getElementById('auth-modal').style.display = 'none';
@@ -126,7 +108,6 @@ const App = {
             });
         });
         
-        // Admin panel
         const adminViewOrders = document.getElementById('admin-view-orders');
         const adminSearchOrder = document.getElementById('admin-search-order');
         
@@ -443,7 +424,6 @@ const App = {
             }).join('');
             document.getElementById('cart-total').textContent = total.toFixed(2);
             
-            // Bindear eventos de cantidad
             document.querySelectorAll('.cart-qty-down').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const id = btn.dataset.id;
@@ -518,7 +498,6 @@ const App = {
         
         await DB.guardarPedido(pedido);
         
-        // Limpiar carrito
         cart = [];
         this.saveCart();
         this.updateCartUI();
@@ -564,7 +543,6 @@ const App = {
     }
 };
 
-// Inicializar cuando el documento esté listo
 document.addEventListener('DOMContentLoaded', () => {
     App.init();
 });
