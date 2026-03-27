@@ -179,6 +179,13 @@
             color: #fff;
             border-radius: 4px;
         }
+        .test-result {
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+        }
+        .test-result.success { color: #28a745; }
+        .test-result.error { color: #dc3545; }
+        .test-result.warning { color: #ffc107; }
     </style>
 </head>
 <body>
@@ -242,8 +249,9 @@
                 <div class="setting-group">
                     <h3>Instrucciones Rápidas</h3>
                     <ol style="color: #aaa; line-height: 1.8;">
+                        <li>Configura tu API Key de TMDB en la pestaña "Configuración"</li>
                         <li>Ve a la pestaña "Subir Estructura"</li>
-                        <li>Selecciona el archivo HTML que contiene la estructura de tus directorios (el que generaste con Snap2HTML)</li>
+                        <li>Selecciona el archivo HTML que contiene la estructura de tus directorios</li>
                         <li>Espera a que procese todos los archivos</li>
                         <li>Los productos aparecerán automáticamente en la tienda</li>
                     </ol>
@@ -270,11 +278,12 @@
                     <div class="progress-container">
                         <div class="progress-bar" id="progress-bar">0%</div>
                     </div>
-                    <div class="progress-stats" style="display: flex; gap: 1rem; margin: 1rem 0;">
+                    <div class="progress-stats" style="display: flex; gap: 1rem; margin: 1rem 0; flex-wrap: wrap;">
                         <div>Archivos encontrados: <strong id="total-files">0</strong></div>
                         <div>Procesados: <strong id="processed-files">0</strong></div>
                         <div>Nuevos: <strong id="new-files">0</strong></div>
                         <div>Existentes: <strong id="existing-files">0</strong></div>
+                        <div>TMDB encontrados: <strong id="tmdb-found">0</strong></div>
                         <div>Errores: <strong id="error-files">0</strong></div>
                     </div>
                     <div class="log-container" id="log-container"></div>
@@ -284,10 +293,10 @@
             <!-- Products Tab -->
             <div id="products-tab" class="admin-tab">
                 <h2>Productos en Base de Datos</h2>
-                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
                     <input type="text" id="product-search" placeholder="Buscar producto..." style="flex: 1; padding: 0.5rem; background: #333; border: none; color: #fff; border-radius: 4px;">
                     <select id="category-filter" style="padding: 0.5rem; background: #333; border: none; color: #fff; border-radius: 4px;">
-                        <option value="">Todas</option>
+                        <option value="">Todas las categorías</option>
                         <option value="peliculas">Películas</option>
                         <option value="series">Series</option>
                         <option value="novelas">Novelas</option>
@@ -303,10 +312,10 @@
             <!-- Orders Tab -->
             <div id="orders-tab" class="admin-tab">
                 <h2>Pedidos</h2>
-                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
                     <input type="text" id="order-search" placeholder="Buscar por código..." style="flex: 1; padding: 0.5rem; background: #333; border: none; color: #fff; border-radius: 4px;">
                     <button id="search-order" class="btn-secondary">Buscar</button>
-                    <button id="export-orders" class="btn-secondary">Exportar</button>
+                    <button id="export-orders" class="btn-secondary">Exportar Pedidos</button>
                 </div>
                 <div id="orders-list"></div>
             </div>
@@ -344,8 +353,10 @@
                     <input type="number" id="price-animes" step="0.01" value="3.99">
                     <span>$</span>
                 </div>
-                <button id="save-prices" class="btn-primary" style="margin-top: 1rem;">Guardar Precios</button>
-                <button id="apply-prices" class="btn-secondary" style="margin-top: 1rem;">Aplicar a Productos</button>
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <button id="save-prices" class="btn-primary">Guardar Precios</button>
+                    <button id="apply-prices" class="btn-secondary">Aplicar a Productos</button>
+                </div>
             </div>
 
             <!-- Settings Tab -->
@@ -355,6 +366,8 @@
                     <h3>TMDB API Key</h3>
                     <input type="password" id="tmdb-api-key" placeholder="Ingresa tu API Key de TMDB">
                     <button id="save-api-key" class="btn-secondary">Guardar</button>
+                    <button id="test-tmdb" class="btn-secondary" style="margin-left: 0.5rem;">Probar Conexión</button>
+                    <div id="test-result" class="test-result"></div>
                     <p class="help-text" style="margin-top: 0.5rem; color: #aaa; font-size: 0.8rem;">
                         Obtén tu API Key gratis en <a href="https://www.themoviedb.org/signup" target="_blank" style="color: #e50914;">themoviedb.org</a>
                     </p>
@@ -375,42 +388,339 @@
         <p>Procesando...</p>
     </div>
 
-    <script src="js/db.js"></script>
-    <script src="js/tmdb.js"></script>
     <script>
-        // Admin Panel JavaScript
+        // Admin Panel JavaScript - Versión Mejorada
         let currentAdmin = null;
         let allProducts = [];
 
-        // Verificar sesión admin
-        async function checkAdminSession() {
-            const savedUser = localStorage.getItem('currentUser');
-            if (savedUser) {
-                const user = JSON.parse(savedUser);
-                if (user.telefono === 'altairdbb' && user.password === 'altairdbb') {
-                    currentAdmin = user;
-                    document.getElementById('admin-user').textContent = user.nombre;
-                    return true;
+        // ==================== FUNCIONES DE TMDB MEJORADAS ====================
+        
+        // Buscar en TMDB con múltiples estrategias
+        async function searchTMDB(query, type) {
+            const apiKey = localStorage.getItem('tmdb_api_key');
+            if (!apiKey) {
+                console.log('No hay API Key de TMDB');
+                return null;
+            }
+            
+            // Limpiar el nombre para búsqueda óptima
+            let searchQuery = cleanSearchQuery(query);
+            console.log(`Buscando en TMDB: "${searchQuery}" (original: "${query}")`);
+            
+            try {
+                // Estrategia 1: Búsqueda directa
+                let result = await performTMDBSearch(searchQuery, type, apiKey);
+                if (result) return result;
+                
+                // Estrategia 2: Quitar palabras comunes
+                let simplerQuery = searchQuery.replace(/\b(la|el|los|las|un|una|y|de|del|en|por|para|con|sin)\b/gi, '').trim();
+                if (simplerQuery !== searchQuery && simplerQuery.length > 3) {
+                    console.log(`Intentando búsqueda simplificada: "${simplerQuery}"`);
+                    result = await performTMDBSearch(simplerQuery, type, apiKey);
+                    if (result) return result;
+                }
+                
+                // Estrategia 3: Buscar solo la primera palabra (si es larga)
+                let firstWord = searchQuery.split(' ')[0];
+                if (firstWord && firstWord.length > 3 && firstWord !== searchQuery) {
+                    console.log(`Intentando búsqueda por primera palabra: "${firstWord}"`);
+                    result = await performTMDBSearch(firstWord, type, apiKey);
+                    if (result) return result;
+                }
+                
+                // Estrategia 4: Buscar sin acentos
+                let noAccents = searchQuery.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                if (noAccents !== searchQuery && noAccents.length > 3) {
+                    console.log(`Intentando búsqueda sin acentos: "${noAccents}"`);
+                    result = await performTMDBSearch(noAccents, type, apiKey);
+                    if (result) return result;
+                }
+                
+                console.log(`No se encontró: "${searchQuery}"`);
+                return null;
+                
+            } catch (error) {
+                console.error('TMDB error:', error);
+                return null;
+            }
+        }
+
+        // Realizar la búsqueda en TMDB
+        async function performTMDBSearch(query, type, apiKey) {
+            const url = `https://api.themoviedb.org/3/search/${type}?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=es&page=1`;
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.results && data.results.length > 0) {
+                    const result = data.results[0];
+                    console.log(`✅ Encontrado: "${result.title || result.name}" (popularidad: ${result.popularity})`);
+                    
+                    // Obtener trailer
+                    let trailer = null;
+                    try {
+                        const videoUrl = `https://api.themoviedb.org/3/${type}/${result.id}/videos?api_key=${apiKey}&language=es`;
+                        const videoRes = await fetch(videoUrl);
+                        const videoData = await videoRes.json();
+                        const trailerVideo = videoData.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+                        if (trailerVideo) {
+                            trailer = `https://www.youtube.com/embed/${trailerVideo.key}`;
+                        }
+                    } catch (error) {
+                        console.error('Error obteniendo trailer:', error);
+                    }
+                    
+                    return {
+                        id: result.id,
+                        titulo: result.title || result.name,
+                        sinopsis: result.overview || 'Sin información disponible.',
+                        anio: (result.release_date || result.first_air_date || '').split('-')[0],
+                        poster: result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : null,
+                        trailer: trailer,
+                        popularidad: result.popularity
+                    };
+                }
+            } catch (error) {
+                console.error('Error en búsqueda TMDB:', error);
+            }
+            
+            return null;
+        }
+
+        // Limpiar el nombre para búsqueda
+        function cleanSearchQuery(query) {
+            let clean = query;
+            
+            // Quitar temporada y episodio
+            clean = clean.replace(/[Ss]\d+[Ee]\d+/, '');
+            clean = clean.replace(/\d+x\d+/, '');
+            clean = clean.replace(/temporada\s*\d+/i, '');
+            clean = clean.replace(/cap[ií]tulo\s*\d+/i, '');
+            clean = clean.replace(/episodio\s*\d+/i, '');
+            
+            // Quitar calidad y formato
+            clean = clean.replace(/\b(1080p|720p|480p|360p|hd|fullhd|4k|uhd|x264|x265)\b/gi, '');
+            clean = clean.replace(/\b(mp4|avi|mkv|mov|wmv|mpeg|webm)\b/gi, '');
+            
+            // Quitar información de audio
+            clean = clean.replace(/\b(dual|latino|español|ingles|subtitulado|sub|castellano)\b/gi, '');
+            
+            // Quitar corchetes y paréntesis
+            clean = clean.replace(/\[[^\]]*\]/g, '');
+            clean = clean.replace(/\([^\)]*\)/g, '');
+            
+            // Quitar guiones bajos y puntos
+            clean = clean.replace(/[._-]/g, ' ');
+            
+            // Normalizar espacios
+            clean = clean.replace(/\s+/g, ' ').trim();
+            
+            // Capitalizar primera letra de cada palabra
+            clean = clean.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(' ');
+            
+            return clean;
+        }
+
+        // ==================== FUNCIONES DE EXTRACCIÓN DE ARCHIVOS ====================
+        
+        // Extraer archivos del HTML con mejor detección
+        function extractFilesFromHTML(htmlContent) {
+            const files = [];
+            const seen = new Set();
+            const extensions = ['mp4', 'avi', 'mkv', 'mov', 'wmv', 'mpg', 'mpeg', 'webm', 'flv'];
+            const extPattern = extensions.join('|');
+            
+            // Patrón para encontrar archivos con su tamaño y fecha
+            const fullPattern = new RegExp(`"([^"]*\\.(${extPattern}))\\*(\\d+)\\*(\\d+)"`, 'gi');
+            const simplePattern = new RegExp(`"([^"]*\\.(${extPattern}))"`, 'gi');
+            
+            let match;
+            
+            // Intentar primero con patrón completo
+            while ((match = fullPattern.exec(htmlContent)) !== null) {
+                const fullPath = match[1];
+                const name = extractFileName(fullPath);
+                
+                if (!seen.has(name)) {
+                    seen.add(name);
+                    const fileInfo = parseFileName(name, fullPath);
+                    files.push(fileInfo);
                 }
             }
-            window.location.href = 'index.html';
-            return false;
+            
+            // Si no encontró nada, usar patrón simple
+            if (files.length === 0) {
+                while ((match = simplePattern.exec(htmlContent)) !== null) {
+                    const fullPath = match[1];
+                    const name = extractFileName(fullPath);
+                    
+                    if (!seen.has(name)) {
+                        seen.add(name);
+                        const fileInfo = parseFileName(name, fullPath);
+                        files.push(fileInfo);
+                    }
+                }
+            }
+            
+            // Ordenar por nombre
+            files.sort((a, b) => a.name.localeCompare(b.name));
+            
+            console.log(`Extraídos ${files.length} archivos únicos`);
+            return files;
         }
 
-        // Cargar estadísticas
-        async function loadStats() {
-            const productos = await DB.obtenerProductos();
-            const pedidos = await DB.obtenerPedidos();
-            
-            const peliculas = productos.filter(p => p.seccion === 'peliculas').length;
-            const series = productos.filter(p => p.seccion === 'series').length;
-            
-            document.getElementById('total-peliculas').textContent = peliculas;
-            document.getElementById('total-series').textContent = series;
-            document.getElementById('total-productos').textContent = productos.length;
-            document.getElementById('total-pedidos').textContent = pedidos.length;
+        // Extraer nombre del archivo de la ruta completa
+        function extractFileName(fullPath) {
+            let name = fullPath;
+            if (name.includes('/')) {
+                name = name.split('/').pop();
+            }
+            if (name.includes('\\')) {
+                name = name.split('\\').pop();
+            }
+            return name;
         }
 
+        // Parsear nombre de archivo con mejor detección
+        function parseFileName(filename, fullPath) {
+            let originalName = filename;
+            let nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+            
+            // Extraer información de temporada/episodio
+            let season = null;
+            let episode = null;
+            let title = nameWithoutExt;
+            
+            // Patrones para series
+            const patterns = [
+                { regex: /[Ss](\d+)[Ee](\d+)/, seasonIdx: 1, episodeIdx: 2 },
+                { regex: /(\d+)x(\d+)/, seasonIdx: 1, episodeIdx: 2 },
+                { regex: /(\d+)-(\d+)/, seasonIdx: 1, episodeIdx: 2 },
+                { regex: /Temporada[_\s]*(\d+)[_\s]*Cap[ií]tulo[_\s]*(\d+)/i, seasonIdx: 1, episodeIdx: 2 },
+                { regex: /S(\d+)C(\d+)/i, seasonIdx: 1, episodeIdx: 2 }
+            ];
+            
+            for (const pattern of patterns) {
+                const match = nameWithoutExt.match(pattern.regex);
+                if (match) {
+                    season = parseInt(match[pattern.seasonIdx]);
+                    episode = parseInt(match[pattern.episodeIdx]);
+                    title = nameWithoutExt.replace(pattern.regex, '').trim();
+                    break;
+                }
+            }
+            
+            // Limpiar título
+            title = cleanTitle(title);
+            
+            // Detectar tipo basado en la ruta
+            let type = detectType(fullPath, title, season);
+            
+            // Para series, mejorar el título
+            if (type === 'series' && season) {
+                if (title.match(/\d+$/)) {
+                    title = title.replace(/\d+$/, '').trim();
+                }
+            }
+            
+            return {
+                name: originalName,
+                fullPath: fullPath,
+                cleanName: title,
+                title: title,
+                season: season,
+                episode: episode,
+                type: type
+            };
+        }
+
+        // Limpiar título de elementos no deseados
+        function cleanTitle(title) {
+            // Quitar números de versión
+            title = title.replace(/\b(v\d+)\b/gi, '');
+            title = title.replace(/\b(parte\s*\d+)\b/gi, '');
+            
+            // Quitar palabras comunes al final
+            title = title.replace(/\s+(complete|full|final|extended|directors cut|edition)$/i, '');
+            
+            // Quitar caracteres especiales
+            title = title.replace(/[^\w\s\u00C0-\u00FF]/g, ' ');
+            
+            // Normalizar espacios
+            title = title.replace(/\s+/g, ' ').trim();
+            
+            return title;
+        }
+
+        // Detectar tipo de contenido
+        function detectType(fullPath, title, season) {
+            const pathLower = fullPath.toLowerCase();
+            const titleLower = title.toLowerCase();
+            
+            // Mapeo de carpetas
+            const typeMap = [
+                { keywords: ['peliculas', 'movies', 'film', 'película', 'movie'], type: 'peliculas' },
+                { keywords: ['series', 'serie', 'tvshows', 'tv shows', 'seri'], type: 'series' },
+                { keywords: ['novelas', 'telenovelas', 'telenovela'], type: 'novelas' },
+                { keywords: ['shows', 'programas', 'tv show'], type: 'shows' },
+                { keywords: ['animados', 'cartoons', 'dibujos', 'dibujos animados'], type: 'animados' },
+                { keywords: ['animes', 'anime', 'japanese'], type: 'animes' }
+            ];
+            
+            // Buscar por carpeta
+            for (const map of typeMap) {
+                for (const keyword of map.keywords) {
+                    if (pathLower.includes(keyword)) {
+                        return map.type;
+                    }
+                }
+            }
+            
+            // Si tiene temporada/episodio, es serie
+            if (season !== null) {
+                return 'series';
+            }
+            
+            // Buscar palabras clave en el título
+            if (titleLower.includes('serie') || titleLower.includes('capítulo') || titleLower.includes('episodio')) {
+                return 'series';
+            }
+            
+            // Por defecto, película
+            return 'peliculas';
+        }
+
+        // Generar ID único
+        function generateId(fileInfo) {
+            let baseId = fileInfo.cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            if (fileInfo.season && fileInfo.episode) {
+                return `${baseId}_s${fileInfo.season}e${fileInfo.episode}`;
+            }
+            return baseId;
+        }
+
+        // Extraer año del nombre
+        function extractYear(name) {
+            const match = name.match(/\b(19|20)\d{2}\b/);
+            return match ? match[0] : 'Desconocido';
+        }
+
+        // Obtener póster por defecto
+        function getDefaultPoster(type) {
+            const posters = {
+                peliculas: 'https://via.placeholder.com/500x750?text=Película',
+                series: 'https://via.placeholder.com/500x750?text=Serie',
+                novelas: 'https://via.placeholder.com/500x750?text=Novela',
+                shows: 'https://via.placeholder.com/500x750?text=Show',
+                animados: 'https://via.placeholder.com/500x750?text=Animado',
+                animes: 'https://via.placeholder.com/500x750?text=Anime'
+            };
+            return posters[type] || 'https://via.placeholder.com/500x750?text=Contenido';
+        }
+
+        // ==================== FUNCIONES DE PROCESAMIENTO ====================
+        
         // Procesar archivo HTML
         async function processHTMLFile(file) {
             const loading = document.getElementById('loading-overlay');
@@ -421,6 +731,7 @@
             const processedSpan = document.getElementById('processed-files');
             const newSpan = document.getElementById('new-files');
             const existingSpan = document.getElementById('existing-files');
+            const tmdbFoundSpan = document.getElementById('tmdb-found');
             const errorSpan = document.getElementById('error-files');
             
             loading.style.display = 'flex';
@@ -430,6 +741,7 @@
             let processed = 0;
             let newCount = 0;
             let existingCount = 0;
+            let tmdbFoundCount = 0;
             let errorCount = 0;
             
             function addLog(message, type = '') {
@@ -481,7 +793,7 @@
                     if (existingIds.has(id)) {
                         existingCount++;
                         existingSpan.textContent = existingCount;
-                        addLog(`   ⏭️ Ya existe en BD: ${fileInfo.name}`, 'warning');
+                        addLog(`   ⏭️ Ya existe en BD: ${fileInfo.cleanName}`, 'warning');
                         continue;
                     }
                     
@@ -489,12 +801,15 @@
                     let tmdbInfo = null;
                     const apiKey = localStorage.getItem('tmdb_api_key');
                     if (apiKey) {
-                        addLog(`   🔍 Buscando en TMDB: ${fileInfo.cleanName}`, '');
-                        tmdbInfo = await searchTMDB(fileInfo.cleanName, fileInfo.type === 'peliculas' ? 'movie' : 'tv');
+                        const tmdbType = fileInfo.type === 'peliculas' ? 'movie' : 'tv';
+                        addLog(`   🔍 Buscando en TMDB: "${fileInfo.cleanName}"`, '');
+                        tmdbInfo = await searchTMDB(fileInfo.cleanName, tmdbType);
                         if (tmdbInfo) {
-                            addLog(`   ✅ Encontrado: ${tmdbInfo.titulo}`, 'success');
+                            tmdbFoundCount++;
+                            tmdbFoundSpan.textContent = tmdbFoundCount;
+                            addLog(`   ✅ Encontrado: ${tmdbInfo.titulo} (${tmdbInfo.anio})`, 'success');
                         } else {
-                            addLog(`   ⚠️ No encontrado en TMDB`, 'warning');
+                            addLog(`   ⚠️ No encontrado en TMDB, usando datos básicos`, 'warning');
                         }
                     }
                     
@@ -519,11 +834,11 @@
                     newCount++;
                     newSpan.textContent = newCount;
                     existingIds.add(id);
-                    addLog(`   ✅ Producto agregado: ${product.titulo}`, 'success');
+                    addLog(`   ✅ Producto agregado: ${product.titulo} (${product.seccion})`, 'success');
                 }
                 
-                addLog(`🎉 Procesamiento completado! Nuevos: ${newCount}, Existentes: ${existingCount}, Errores: ${errorCount}`);
-                alert(`Procesamiento completado!\n\nNuevos productos: ${newCount}\nYa existían: ${existingCount}\nErrores: ${errorCount}`);
+                addLog(`🎉 Procesamiento completado! Nuevos: ${newCount}, Existentes: ${existingCount}, TMDB encontrados: ${tmdbFoundCount}, Errores: ${errorCount}`);
+                alert(`Procesamiento completado!\n\nNuevos productos: ${newCount}\nYa existían: ${existingCount}\nTMDB encontrados: ${tmdbFoundCount}\nErrores: ${errorCount}`);
                 
                 // Recargar estadísticas y productos
                 await loadStats();
@@ -537,162 +852,7 @@
                 loading.style.display = 'none';
             }
         }
-        
-        // Extraer archivos del HTML
-        function extractFilesFromHTML(htmlContent) {
-            const files = [];
-            const seen = new Set();
-            
-            // Patrón para encontrar archivos de video
-            const patterns = [
-                /"([^"]*\.(?:mp4|avi|mkv|mov|wmv|mpg|mpeg))\*(\d+)\*(\d+)"/gi,
-                /([^"]*\.(?:mp4|avi|mkv|mov|wmv|mpg|mpeg))/gi
-            ];
-            
-            let match;
-            const regex = /"([^"]*\.(?:mp4|avi|mkv|mov|wmv|mpg|mpeg))\*(\d+)\*(\d+)"/gi;
-            
-            while ((match = regex.exec(htmlContent)) !== null) {
-                const fullPath = match[1];
-                const name = fullPath.split('/').pop() || fullPath.split('\\').pop();
-                
-                if (seen.has(name)) continue;
-                seen.add(name);
-                
-                const fileInfo = parseFileName(name, fullPath);
-                files.push(fileInfo);
-            }
-            
-            // Si no encontró con el patrón completo, buscar solo nombres
-            if (files.length === 0) {
-                const simpleRegex = /([^"]*\.(?:mp4|avi|mkv|mov|wmv|mpg|mpeg))/gi;
-                while ((match = simpleRegex.exec(htmlContent)) !== null) {
-                    const fullPath = match[1];
-                    const name = fullPath.split('/').pop() || fullPath.split('\\').pop();
-                    
-                    if (seen.has(name)) continue;
-                    seen.add(name);
-                    
-                    const fileInfo = parseFileName(name, fullPath);
-                    files.push(fileInfo);
-                }
-            }
-            
-            return files;
-        }
-        
-        // Parsear nombre de archivo
-        function parseFileName(filename, fullPath) {
-            let cleanName = filename.replace(/\.[^/.]+$/, "");
-            cleanName = cleanName.replace(/\[.*?\]|\(.*?\)/g, '');
-            cleanName = cleanName.replace(/[._-]/g, ' ').trim();
-            
-            // Detectar temporada y episodio
-            let season = null;
-            let episode = null;
-            let title = cleanName;
-            
-            const patterns = [
-                /[Ss](\d+)[Ee](\d+)/,
-                /(\d+)x(\d+)/,
-                /(\d+)-(\d+)/
-            ];
-            
-            for (const pattern of patterns) {
-                const match = cleanName.match(pattern);
-                if (match) {
-                    season = parseInt(match[1]);
-                    episode = parseInt(match[2]);
-                    title = cleanName.replace(pattern, '').trim();
-                    break;
-                }
-            }
-            
-            // Detectar tipo
-            let type = 'peliculas';
-            const pathLower = fullPath.toLowerCase();
-            if (pathLower.includes('series') || pathLower.includes('serie')) type = 'series';
-            else if (pathLower.includes('novelas') || pathLower.includes('telenovela')) type = 'novelas';
-            else if (pathLower.includes('shows')) type = 'shows';
-            else if (pathLower.includes('animados') || pathLower.includes('cartoon')) type = 'animados';
-            else if (pathLower.includes('animes') || pathLower.includes('anime')) type = 'animes';
-            else if (season !== null) type = 'series';
-            
-            return {
-                name: filename,
-                fullPath: fullPath,
-                cleanName: title || cleanName,
-                title: title || cleanName,
-                season: season,
-                episode: episode,
-                type: type
-            };
-        }
-        
-        // Generar ID único
-        function generateId(fileInfo) {
-            if (fileInfo.season && fileInfo.episode) {
-                return `${fileInfo.cleanName}_S${fileInfo.season}E${fileInfo.episode}`.toLowerCase().replace(/[^a-z0-9]/g, '_');
-            }
-            return fileInfo.cleanName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        }
-        
-        // Buscar en TMDB
-        async function searchTMDB(query, type) {
-            const apiKey = localStorage.getItem('tmdb_api_key');
-            if (!apiKey) return null;
-            
-            try {
-                const url = `https://api.themoviedb.org/3/search/${type}?api_key=${apiKey}&query=${encodeURIComponent(query)}&language=es`;
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                if (data.results && data.results.length > 0) {
-                    const result = data.results[0];
-                    
-                    // Obtener trailer
-                    let trailer = null;
-                    const videoUrl = `https://api.themoviedb.org/3/${type}/${result.id}/videos?api_key=${apiKey}&language=es`;
-                    const videoRes = await fetch(videoUrl);
-                    const videoData = await videoRes.json();
-                    const trailerVideo = videoData.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube');
-                    if (trailerVideo) {
-                        trailer = `https://www.youtube.com/embed/${trailerVideo.key}`;
-                    }
-                    
-                    return {
-                        titulo: result.title || result.name,
-                        sinopsis: result.overview,
-                        anio: (result.release_date || result.first_air_date || '').split('-')[0],
-                        poster: result.poster_path ? `https://image.tmdb.org/t/p/w500${result.poster_path}` : null,
-                        trailer: trailer
-                    };
-                }
-            } catch (error) {
-                console.error('TMDB error:', error);
-            }
-            return null;
-        }
-        
-        // Extraer año del nombre
-        function extractYear(name) {
-            const match = name.match(/\b(19|20)\d{2}\b/);
-            return match ? match[0] : 'Desconocido';
-        }
-        
-        // Obtener póster por defecto
-        function getDefaultPoster(type) {
-            const posters = {
-                peliculas: 'https://via.placeholder.com/500x750?text=Película',
-                series: 'https://via.placeholder.com/500x750?text=Serie',
-                novelas: 'https://via.placeholder.com/500x750?text=Novela',
-                shows: 'https://via.placeholder.com/500x750?text=Show',
-                animados: 'https://via.placeholder.com/500x750?text=Animado',
-                animes: 'https://via.placeholder.com/500x750?text=Anime'
-            };
-            return posters[type] || 'https://via.placeholder.com/500x750?text=Contenido';
-        }
-        
+
         // Leer archivo como texto
         function readFileAsText(file) {
             return new Promise((resolve, reject) => {
@@ -702,7 +862,23 @@
                 reader.readAsText(file);
             });
         }
+
+        // ==================== FUNCIONES DE BASE DE DATOS ====================
         
+        // Cargar estadísticas
+        async function loadStats() {
+            const productos = await DB.obtenerProductos();
+            const pedidos = await DB.obtenerPedidos();
+            
+            const peliculas = productos.filter(p => p.seccion === 'peliculas').length;
+            const series = productos.filter(p => p.seccion === 'series').length;
+            
+            document.getElementById('total-peliculas').textContent = peliculas;
+            document.getElementById('total-series').textContent = series;
+            document.getElementById('total-productos').textContent = productos.length;
+            document.getElementById('total-pedidos').textContent = pedidos.length;
+        }
+
         // Cargar productos
         async function loadProducts() {
             allProducts = await DB.obtenerProductos();
@@ -732,7 +908,7 @@
                         <h4>${p.titulo}</h4>
                         <p style="color: #aaa; font-size: 0.8rem;">${p.seccion} • ${p.anio}</p>
                         <p style="color: #e50914;">$${(p.precio || 0).toFixed(2)}</p>
-                        ${p.temporada ? `<p style="font-size: 0.7rem;">Temp ${p.temporada} - Cap ${p.episodio}</p>` : ''}
+                        ${p.temporada ? `<p style="font-size: 0.7rem;">Temporada ${p.temporada} - Capítulo ${p.episodio}</p>` : ''}
                     </div>
                     <button class="delete-product" data-id="${p.id}" style="background: #dc3545; border: none; color: #fff; padding: 0.3rem 0.8rem; border-radius: 4px; cursor: pointer;">
                         Eliminar
@@ -750,7 +926,7 @@
                 });
             });
         }
-        
+
         // Cargar pedidos
         async function loadOrders() {
             const orders = await DB.obtenerPedidos();
@@ -790,7 +966,7 @@
                 });
             });
         }
-        
+
         // Aplicar precios a productos
         async function applyPricesToProducts() {
             const prices = {
@@ -817,7 +993,7 @@
             alert(`Precios aplicados a ${updated} productos`);
             await loadProducts();
         }
-        
+
         // Exportar base de datos
         async function exportDatabase() {
             const productos = await DB.obtenerProductos();
@@ -839,7 +1015,7 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }
-        
+
         // Importar base de datos
         async function importDatabase(file) {
             return new Promise((resolve, reject) => {
@@ -869,7 +1045,7 @@
                 reader.readAsText(file);
             });
         }
-        
+
         // Resetear base de datos
         async function resetDatabase() {
             if (!confirm('⚠️ ¿Estás seguro? Esto ELIMINARÁ TODOS los productos y pedidos. Esta acción no se puede deshacer.')) {
@@ -888,8 +1064,39 @@
                 loadOrders();
             };
         }
+
+        // Probar conexión TMDB
+        async function testTMDBConnection() {
+            const apiKey = localStorage.getItem('tmdb_api_key');
+            const resultDiv = document.getElementById('test-result');
+            
+            if (!apiKey) {
+                resultDiv.innerHTML = '<span class="test-result warning">⚠️ No hay API Key configurada</span>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<span class="test-result">Probando conexión...</span>';
+            
+            try {
+                const url = `https://api.themoviedb.org/3/search/movie?api_key=${apiKey}&query=matrix&language=es`;
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.results && data.results.length > 0) {
+                    resultDiv.innerHTML = '<span class="test-result success">✅ Conexión exitosa! TMDB API funcionando correctamente</span>';
+                    console.log('TMDB test result:', data.results[0]);
+                } else if (data.status_message) {
+                    resultDiv.innerHTML = `<span class="test-result error">❌ Error: ${data.status_message}</span>`;
+                } else {
+                    resultDiv.innerHTML = '<span class="test-result error">❌ Error desconocido en la conexión</span>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="test-result error">❌ Error de conexión: ${error.message}</span>`;
+            }
+        }
+
+        // ==================== EVENT LISTENERS ====================
         
-        // Event Listeners
         function bindEvents() {
             // Tabs
             document.querySelectorAll('.admin-menu-btn').forEach(btn => {
@@ -984,9 +1191,11 @@
                 if (apiKey) {
                     localStorage.setItem('tmdb_api_key', apiKey);
                     alert('API Key guardada');
+                    testTMDBConnection();
                 }
             });
             
+            document.getElementById('test-tmdb')?.addEventListener('click', testTMDBConnection);
             document.getElementById('export-db')?.addEventListener('click', exportDatabase);
             document.getElementById('import-db')?.addEventListener('click', () => {
                 document.getElementById('import-file').click();
@@ -1025,9 +1234,25 @@
             const savedApiKey = localStorage.getItem('tmdb_api_key');
             if (savedApiKey) {
                 document.getElementById('tmdb-api-key').value = savedApiKey;
+                testTMDBConnection();
             }
         }
-        
+
+        // Verificar sesión admin
+        async function checkAdminSession() {
+            const savedUser = localStorage.getItem('currentUser');
+            if (savedUser) {
+                const user = JSON.parse(savedUser);
+                if (user.telefono === 'altairdbb' && user.password === 'altairdbb') {
+                    currentAdmin = user;
+                    document.getElementById('admin-user').textContent = user.nombre;
+                    return true;
+                }
+            }
+            window.location.href = 'index.html';
+            return false;
+        }
+
         // Inicializar
         async function init() {
             await checkAdminSession();
