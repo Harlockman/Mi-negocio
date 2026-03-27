@@ -28,7 +28,6 @@ function openDB() {
             const db = event.target.result;
             console.log('Actualizando estructura de base de datos...');
             
-            // Store de productos
             if (!db.objectStoreNames.contains('productos')) {
                 const productStore = db.createObjectStore('productos', { keyPath: 'id' });
                 productStore.createIndex('seccion', 'seccion', { unique: false });
@@ -37,14 +36,12 @@ function openDB() {
                 console.log('Store productos creada');
             }
             
-            // Store de usuarios
             if (!db.objectStoreNames.contains('usuarios')) {
                 const userStore = db.createObjectStore('usuarios', { keyPath: 'telefono' });
                 userStore.createIndex('nombre', 'nombre', { unique: false });
                 console.log('Store usuarios creada');
             }
             
-            // Store de pedidos
             if (!db.objectStoreNames.contains('pedidos')) {
                 const orderStore = db.createObjectStore('pedidos', { keyPath: 'codigo' });
                 orderStore.createIndex('usuario', 'usuario', { unique: false });
@@ -180,7 +177,6 @@ async function eliminarPedido(codigo) {
     });
 }
 
-// Exportar funciones
 window.DB = {
     openDB,
     guardarProducto,
