@@ -1,7 +1,7 @@
 // admin-tools.js - Herramientas específicas para el administrador
 window.CONFIG = {
     GITHUB_REPO: '',
-    TMDB_API_KEY: '',
+    TMDB_API_KEY: 'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI3MzA3MzUwZDBiMTY2MDU4ZDFiOTI2YWFkNzkzZWVlYyIsIm5iZiI6MTc3Mzk0ODgzMy44MzIsInN1YiI6IjY5YmM0ZmExMjAxNGE5MWU2M2FhZmZhMyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.JIq_kDsLUYIFV-x8QzvPtwwpYdraLcSecdmW9upWbOw',
     UPDATE_EXISTING: true,
     FETCH_TMDB: true,
     SCAN_RECURSIVE: true
